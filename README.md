@@ -2,11 +2,11 @@
 
 A CardMirror plugin that creates speech documents named from your live Tabroom pairings.
 
-Instead of typing `1AC Harvard Round 1 vs Hill SM` by hand every round, pick the round from a list and the document is created and named for you. Same idea as Verbatim's speech-doc dropdown, built for CardMirror.
+Instead of typing `1AC Harvard Round 1 vs Ridge AM` by hand every round, pick the round from a list and the document is created and named for you. Same idea as Verbatim's speech-doc dropdown, built for CardMirror.
 
 ## How it works
 
-Tabroom has no public API for your own pairings. The path that works and the one Verbatim uses goes through openCaselist:
+Tabroom has no public API for your own pairings. The path that works — and the one Verbatim uses — goes through openCaselist:
 
 ```
 plugin  ->  local helper  ->  api.opencaselist.com/v1/tabroom/rounds  ->  Tabroom
@@ -22,7 +22,7 @@ A helper is needed because openCaselist authenticates with a `SameSite=Lax` cook
 
 Download `TabroomBridgeSetup.zip`, unzip it, and double-click **Tabroom Bridge Setup**.
 
-macOS will block it the first time because it is unsigned right-click the app and choose **Open**, then confirm. You only do this once.
+macOS will block it the first time because it is unsigned — right-click the app and choose **Open**, then confirm. You only do this once.
 
 It installs a background helper that starts at login. No terminal, and no credentials up front: you sign in from inside CardMirror.
 
@@ -50,9 +50,44 @@ Logs: `~/.config/tabroom-bridge/logs/bridge.log`
 
 ### 2. The plugin
 
-In CardMirror: open the developer console (command palette → "devtools") and run `window.__plugins('community-on')` to allow installs from outside the curated allowlist. Then **Settings → Plugins** and paste this repository's `owner/repo` into the install field.
+Make sure **Settings → Plugins → Enable plugins** is on.
 
-To develop against it instead, use **Load plugin from file…** and pick `plugin.js`. Session-only, so reload after each restart.
+CardMirror ships with a short allowlist of approved plugin repositories, and this one is not on it. Before either method below, open the developer console inside CardMirror (command palette, `Cmd/Ctrl+Shift+Space`, then type `devtools`) and run:
+
+```js
+window.__plugins('community-on')
+```
+
+That is a one-time step per machine. It exists so nobody can be talked into installing an arbitrary plugin by accident.
+
+#### Install from GitHub (recommended)
+
+**Settings → Plugins → Install a plugin**, paste either of these into the field, and press Install:
+
+```
+SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin
+https://github.com/SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin
+```
+
+Restart CardMirror. Installing this way means the plugin's row in Settings gets a **Check for updates** button, so future versions are one click.
+
+#### Install manually
+
+Download `cardmirror-plugin.json` and `plugin.js` from the latest release and put them in a folder named exactly `tabroom-rounds`:
+
+```
+~/Library/Application Support/CardMirror/plugins/tabroom-rounds/
+    cardmirror-plugin.json
+    plugin.js
+```
+
+On Windows that folder is `%APPDATA%\CardMirror\plugins\tabroom-rounds\`, and on Linux `~/.config/CardMirror/plugins/tabroom-rounds/`.
+
+Restart CardMirror. The folder name has to match the `id` in the manifest exactly, or the plugin is skipped without an error. Manual installs get no update checks.
+
+#### Load temporarily (for development)
+
+**Settings → Plugins → Load plugin from file…** and pick `plugin.js`. It runs for the current session only and is gone on restart.
 
 ## Use
 

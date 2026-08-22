@@ -2,7 +2,7 @@
 
 A CardMirror plugin that creates speech documents named from your live Tabroom pairings.
 
-Instead of typing `1AC Harvard Round 1 vs Ridge AM` by hand every round, pick the round from a list and the document is created and named for you. Same idea as Verbatim's speech-doc dropdown, built for CardMirror.
+Instead of typing `1AC Harvard Round 1 vs Hill SM` by hand every round, pick the round from a list and the document is created and named for you. Same idea as Verbatim's speech-doc dropdown, built for CardMirror.
 
 ## How it works
 

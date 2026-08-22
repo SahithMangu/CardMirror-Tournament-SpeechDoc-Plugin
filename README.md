@@ -6,7 +6,7 @@ Instead of typing `1AC Harvard Round 1 vs Hill SM` by hand every round, pick the
 
 ## How it works
 
-Tabroom has no public API for your own pairings. The path that works — and the one Verbatim uses — goes through openCaselist:
+Tabroom has no public API for your own pairings. The path that works and the one Verbatim uses goes through openCaselist:
 
 ```
 plugin  ->  local helper  ->  api.opencaselist.com/v1/tabroom/rounds  ->  Tabroom
@@ -22,7 +22,7 @@ A helper is needed because openCaselist authenticates with a `SameSite=Lax` cook
 
 Download `TabroomBridgeSetup.zip`, unzip it, and double-click **Tabroom Bridge Setup**.
 
-macOS will block it the first time because it is unsigned — right-click the app and choose **Open**, then confirm. You only do this once.
+macOS will block it the first time because it is unsigned right-click the app and choose **Open**, then confirm. You only do this once.
 
 It installs a background helper that starts at login. No terminal, and no credentials up front: you sign in from inside CardMirror.
 

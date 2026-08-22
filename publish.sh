@@ -20,6 +20,15 @@ VERSION=$(python3 -c "import json;print(json.load(open('cardmirror-plugin.json')
 [ -n "$VERSION" ] || fail "Could not read version from cardmirror-plugin.json"
 TAG="v$VERSION"
 
+step "Building the installer"
+if command -v pkgbuild >/dev/null 2>&1; then
+  ./build-pkg.sh >/dev/null && echo "built TabroomBridge.pkg"
+  PKG="TabroomBridge.pkg"
+else
+  echo "pkgbuild not available, skipping the .pkg"
+  PKG=""
+fi
+
 step "Packaging $ZIP"
 [ -d "$APP" ] || fail "$APP is missing."
 chmod +x "$APP/Contents/MacOS/setup"
@@ -51,6 +60,8 @@ state.json
 .DS_Store
 logs/
 TabroomBridgeSetup.zip
+TabroomBridge.pkg
+build-pkg/
 EOF
 
 git add -A
@@ -63,8 +74,18 @@ fi
 
 step "Pushing to GitHub"
 if ! git remote get-url origin >/dev/null 2>&1; then
-  gh repo create "$REPO_NAME" --public --source=. --remote=origin --push
-else
+  OWNER=$(gh api user -q .login)
+  if gh repo view "$OWNER/$REPO_NAME" >/dev/null 2>&1; then
+    echo "repo already exists on GitHub, linking to it"
+    git remote add origin "https://github.com/$OWNER/$REPO_NAME.git"
+  else
+    gh repo create "$REPO_NAME" --public --source=. --remote=origin
+  fi
+fi
+
+if ! git push -u origin main 2>/dev/null; then
+  echo "remote has commits of its own, rebasing onto them"
+  git pull --rebase origin main
   git push -u origin main
 fi
 
@@ -74,9 +95,9 @@ echo "repo: $SLUG"
 step "Publishing release $TAG"
 if gh release view "$TAG" >/dev/null 2>&1; then
   echo "release $TAG already exists, replacing its assets"
-  gh release upload "$TAG" cardmirror-plugin.json plugin.js "$ZIP" --clobber
+  gh release upload "$TAG" cardmirror-plugin.json plugin.js tabroom_bridge.py "$ZIP" ${PKG:+"$PKG"} --clobber
 else
-  gh release create "$TAG" cardmirror-plugin.json plugin.js "$ZIP" \
+  gh release create "$TAG" cardmirror-plugin.json plugin.js tabroom_bridge.py "$ZIP" ${PKG:+"$PKG"} \
     --title "$TAG" \
     --notes "Speech documents named from your live Tabroom pairings."
 fi

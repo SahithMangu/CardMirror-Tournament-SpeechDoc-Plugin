@@ -5,3 +5,5 @@ state.json
 .DS_Store
 logs/
 TabroomBridgeSetup.zip
+TabroomBridge.pkg
+build-pkg/

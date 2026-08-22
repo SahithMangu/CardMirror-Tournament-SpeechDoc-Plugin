@@ -18,7 +18,9 @@ from pathlib import Path
 
 APP_ID = "tabroom-bridge"
 APP_NAME = "Tabroom Bridge"
-APP_VERSION = "0.2.0"
+APP_VERSION = "1.0.0"
+REPO = "SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin"
+UPDATE_CHECK_INTERVAL = 24 * 3600
 BRIDGE_SCHEMA = 1
 TOKEN_HEADER = "X-Bridge-Token"
 
@@ -362,6 +364,96 @@ class Caselist:
 caselist = Caselist()
 
 
+class Updater:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.latest = None
+        self.checked_at = 0.0
+
+    @staticmethod
+    def newer(a: str, b: str) -> bool:
+        def parts(v):
+            return [int(x) if x.isdigit() else 0 for x in str(v).lstrip("v").split(".")]
+        pa, pb = parts(a), parts(b)
+        for i in range(max(len(pa), len(pb))):
+            x = pa[i] if i < len(pa) else 0
+            y = pb[i] if i < len(pb) else 0
+            if x != y:
+                return x > y
+        return False
+
+    def check(self, force: bool = False):
+        with self.lock:
+            now = time.time()
+            if not force and now - self.checked_at < UPDATE_CHECK_INTERVAL:
+                return self.latest
+            self.checked_at = now
+            req = urllib.request.Request(
+                f"https://api.github.com/repos/{REPO}/releases/latest",
+                headers={"Accept": "application/vnd.github+json", "User-Agent": "tabroom-bridge"},
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=15) as res:
+                    data = json.loads(res.read().decode())
+            except Exception as e:
+                log(f"update check failed: {e}")
+                return self.latest
+            tag = str(data.get("tag_name") or "").lstrip("v")
+            asset = None
+            for a in data.get("assets", []):
+                if a.get("name") == "tabroom_bridge.py":
+                    asset = a.get("browser_download_url")
+                    break
+            self.latest = {"version": tag, "url": asset} if tag and asset else None
+            return self.latest
+
+    def available(self) -> bool:
+        info = self.latest
+        return bool(info and self.newer(info["version"], APP_VERSION))
+
+    def apply(self) -> dict:
+        info = self.check(force=True)
+        if not info:
+            return {"ok": False, "error": "no-release-found"}
+        if not self.newer(info["version"], APP_VERSION):
+            return {"ok": False, "error": "already-current", "version": APP_VERSION}
+        req = urllib.request.Request(
+            info["url"], headers={"User-Agent": "tabroom-bridge"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as res:
+                source = res.read().decode()
+        except Exception as e:
+            return {"ok": False, "error": f"download-failed: {e}"}
+
+        if "APP_ID" not in source or len(source) < 5000:
+            return {"ok": False, "error": "downloaded file does not look like the helper"}
+        try:
+            compile(source, "tabroom_bridge.py", "exec")
+        except SyntaxError as e:
+            return {"ok": False, "error": f"downloaded file failed to parse: {e}"}
+
+        target = Path(__file__).resolve()
+        staged = target.with_suffix(".py.new")
+        try:
+            staged.write_text(source)
+            os.chmod(staged, 0o755)
+            staged.replace(target)
+        except Exception as e:
+            try:
+                staged.unlink()
+            except Exception:
+                pass
+            return {"ok": False, "error": f"could not write update: {e}"}
+
+        log(f"updated to {info['version']}; restarting")
+        threading.Timer(1.0, lambda: os._exit(0)).start()
+        return {"ok": True, "version": info["version"]}
+
+
+updater = Updater()
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -412,6 +504,9 @@ class Handler(BaseHTTPRequestHandler):
                     "budgetRemaining": caselist.budget.remaining(),
                     "budgetMax": BUDGET_MAX,
                     "loginBreaker": caselist.breaker_tripped,
+                    "version": APP_VERSION,
+                    "updateAvailable": updater.available(),
+                    "latestVersion": (updater.latest or {}).get("version"),
                 },
             )
         elif route == "/rounds":
@@ -447,6 +542,19 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(
                     200, {"ok": False, "error": message, "status": result.get("status")}
                 )
+        elif route == "/check-update":
+            info = updater.check(force=bool(body.get("force")))
+            self.send_json(
+                200,
+                {
+                    "ok": True,
+                    "version": APP_VERSION,
+                    "latestVersion": (info or {}).get("version"),
+                    "updateAvailable": updater.available(),
+                },
+            )
+        elif route == "/self-update":
+            self.send_json(200, updater.apply())
         elif route == "/logout":
             caselist.drop_session()
             credentials.forget()
@@ -593,6 +701,7 @@ def serve() -> None:
         caselist.ensure_session()
     else:
         log("no credentials stored; waiting for sign-in from CardMirror")
+    threading.Thread(target=lambda: updater.check(force=True), daemon=True).start()
     try:
         server.serve_forever()
     finally:

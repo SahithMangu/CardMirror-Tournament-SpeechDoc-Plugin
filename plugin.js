@@ -251,16 +251,169 @@
     });
   }
 
+  const RELEASES_URL =
+    'https://github.com/SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin/releases/latest';
+
+  function showHelperNeeded() {
+    closeOverlay();
+    const overlay = document.createElement('div');
+    overlay.id = 'tabroom-rounds-overlay';
+    overlay.style.cssText =
+      'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.32);display:flex;align-items:center;justify-content:center';
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText =
+      'width:min(460px,calc(100vw - 32px));background:var(--pmd-c-bg,#fff);color:var(--pmd-c-text,#111);border:1px solid var(--pmd-c-border,#bbb);border-radius:10px;box-shadow:0 16px 50px rgba(0,0,0,.28);padding:18px;font:14px system-ui,sans-serif';
+
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:17px;font-weight:600;margin-bottom:8px';
+    title.textContent = 'One more piece to install';
+    dialog.appendChild(title);
+
+    const body = document.createElement('div');
+    body.style.cssText = 'font-size:13px;line-height:1.5;opacity:.85;margin-bottom:16px';
+    body.textContent =
+      'Tabroom Rounds needs a small background helper to reach openCaselist, because CardMirror itself is not allowed to send the login cookie. Download TabroomBridge.pkg from the releases page and open it, then try again.';
+    dialog.appendChild(body);
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px';
+    const close = document.createElement('button');
+    close.textContent = 'Later';
+    close.style.cssText =
+      'padding:8px 14px;border-radius:6px;border:1px solid var(--pmd-c-border,#aaa);cursor:pointer;background:transparent;color:inherit';
+    close.addEventListener('click', closeOverlay);
+    const open = document.createElement('button');
+    open.textContent = 'Open releases page';
+    open.style.cssText =
+      'padding:8px 14px;border-radius:6px;border:1px solid var(--pmd-c-border,#aaa);cursor:pointer;font-weight:600;background:transparent;color:inherit';
+    open.addEventListener('click', () => {
+      window.open(RELEASES_URL, '_blank');
+      closeOverlay();
+    });
+    actions.appendChild(close);
+    actions.appendChild(open);
+    dialog.appendChild(actions);
+
+    overlay.appendChild(dialog);
+    overlay.addEventListener('mousedown', (e) => {
+      if (e.target === overlay) closeOverlay();
+    });
+    document.body.appendChild(overlay);
+  }
+
+  const MIN_HELPER_VERSION = '1.0.0';
+
+  function versionBelow(actual, required) {
+    const parse = (v) =>
+      String(v || '0')
+        .replace(/^v/, '')
+        .split('.')
+        .map((n) => parseInt(n, 10) || 0);
+    const a = parse(actual);
+    const b = parse(required);
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+      const x = a[i] || 0;
+      const y = b[i] || 0;
+      if (x !== y) return x < y;
+    }
+    return false;
+  }
+
+  function confirmDialog(title, message, confirmLabel) {
+    closeOverlay();
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.id = 'tabroom-rounds-overlay';
+      overlay.style.cssText =
+        'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.32);display:flex;align-items:center;justify-content:center';
+      const dialog = document.createElement('div');
+      dialog.style.cssText =
+        'width:min(460px,calc(100vw - 32px));background:var(--pmd-c-bg,#fff);color:var(--pmd-c-text,#111);border:1px solid var(--pmd-c-border,#bbb);border-radius:10px;box-shadow:0 16px 50px rgba(0,0,0,.28);padding:18px;font:14px system-ui,sans-serif';
+
+      const h = document.createElement('div');
+      h.style.cssText = 'font-size:17px;font-weight:600;margin-bottom:8px';
+      h.textContent = title;
+      dialog.appendChild(h);
+
+      const body = document.createElement('div');
+      body.style.cssText = 'font-size:13px;line-height:1.5;opacity:.85;margin-bottom:16px';
+      body.textContent = message;
+      dialog.appendChild(body);
+
+      const actions = document.createElement('div');
+      actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px';
+      const no = document.createElement('button');
+      no.textContent = 'Not now';
+      no.style.cssText =
+        'padding:8px 14px;border-radius:6px;border:1px solid var(--pmd-c-border,#aaa);cursor:pointer;background:transparent;color:inherit';
+      const yes = document.createElement('button');
+      yes.textContent = confirmLabel;
+      yes.style.cssText =
+        'padding:8px 14px;border-radius:6px;border:1px solid var(--pmd-c-border,#aaa);cursor:pointer;font-weight:600;background:transparent;color:inherit';
+      const finish = (v) => {
+        overlay.remove();
+        resolve(v);
+      };
+      no.addEventListener('click', () => finish(false));
+      yes.addEventListener('click', () => finish(true));
+      actions.appendChild(no);
+      actions.appendChild(yes);
+      dialog.appendChild(actions);
+      overlay.appendChild(dialog);
+      overlay.addEventListener('mousedown', (e) => {
+        if (e.target === overlay) finish(false);
+      });
+      document.body.appendChild(overlay);
+    });
+  }
+
+  async function runSelfUpdate() {
+    toast('Updating the helper\u2026');
+    const res = await pluginApi.flowPost(BRIDGE_APP, '/self-update', {});
+    if (!res.ok) {
+      toast('Update failed: ' + res.error);
+      return false;
+    }
+    const body = res.body || {};
+    if (!body.ok) {
+      toast('Update failed: ' + body.error);
+      return false;
+    }
+    await new Promise((r) => setTimeout(r, 3000));
+    toast('Helper updated to ' + body.version + '.');
+    return true;
+  }
+
+  async function ensureHelperCurrent(app) {
+    const version = app.appVersion || '0';
+    if (versionBelow(version, MIN_HELPER_VERSION)) {
+      const go = await confirmDialog(
+        'The Tabroom helper needs updating',
+        'This version of the plugin needs helper ' +
+          MIN_HELPER_VERSION +
+          ' or newer, and you have ' +
+          version +
+          '. It can update itself now.',
+        'Update now'
+      );
+      if (!go) return false;
+      return runSelfUpdate();
+    }
+    return true;
+  }
+
   async function fetchRounds(force, current, allowLogin) {
     const app = await bridgeApp();
     if (!app) {
-      toast('Tabroom Bridge is not registered. Run the helper once.');
+      showHelperNeeded();
       return null;
     }
     if (!app.running) {
-      toast('Tabroom Bridge is not running.');
+      toast('The Tabroom helper is installed but not running. Restarting your Mac will start it.');
       return null;
     }
+    if (!(await ensureHelperCurrent(app))) return null;
     const res = await pluginApi.flowPost(BRIDGE_APP, '/rounds', {
       current: current !== false,
       force: !!force
@@ -475,15 +628,49 @@
           pluginApi = api;
           const app = await bridgeApp();
           if (!app) {
-            toast('Tabroom Bridge is not registered.');
+            showHelperNeeded();
             return;
           }
           if (!app.running) {
-            toast('Tabroom Bridge is not running.');
+            toast('The Tabroom helper is installed but not running.');
             return;
           }
           const ok = await showLogin();
           if (ok) toast('Signed in to Tabroom.');
+        }
+      },
+      {
+        id: PLUGIN_ID + '.updatehelper',
+        label: 'Tabroom: Update Helper',
+        keywords: ['tabroom', 'update', 'helper', 'bridge', 'version'],
+        defaultKey: '',
+        run: async (api) => {
+          pluginApi = api;
+          const app = await bridgeApp();
+          if (!app) {
+            showHelperNeeded();
+            return;
+          }
+          if (!app.running) {
+            toast('The Tabroom helper is installed but not running.');
+            return;
+          }
+          const res = await pluginApi.flowPost(BRIDGE_APP, '/check-update', { force: true });
+          if (!res.ok) {
+            toast('Bridge error: ' + res.error);
+            return;
+          }
+          const body = res.body || {};
+          if (!body.updateAvailable) {
+            toast('Helper is up to date (' + body.version + ').');
+            return;
+          }
+          const go = await confirmDialog(
+            'Helper update available',
+            'Version ' + body.latestVersion + ' is available. You have ' + body.version + '.',
+            'Update now'
+          );
+          if (go) await runSelfUpdate();
         }
       },
       {

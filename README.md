@@ -18,18 +18,24 @@ A helper is needed because openCaselist authenticates with a `SameSite=Lax` cook
 
 ## Install
 
+There are two pieces: a **plugin** inside CardMirror, and a small **helper** that runs in the background. You need both. The helper exists because openCaselist authenticates with a cookie, and a plugin running inside CardMirror's browser engine is not allowed to send one.
+
 ### 1. The helper
 
-Download `TabroomBridgeSetup.zip`, unzip it, and double-click **Tabroom Bridge Setup**.
+Download **TabroomBridge.pkg** from the [latest release](../../releases/latest) and open it.
 
-macOS will block it the first time because it is unsigned — right-click the app and choose **Open**, then confirm. You only do this once.
+macOS blocks unsigned installers the first time, so right-click the pkg and choose **Open**, then confirm. You only do this once.
 
-It installs a background helper that starts at login. No terminal, and no credentials up front: you sign in from inside CardMirror.
+It installs a small background service that starts at login. No terminal, and no credentials up front — you sign in from inside CardMirror.
 
-Double-click the app again later to reinstall or remove it.
+The service idles at about 21 MB of memory and no measurable CPU. It only contacts openCaselist when you ask it for rounds.
 
 <details>
-<summary>Terminal alternative</summary>
+<summary>Other install methods</summary>
+
+**App bundle** — download `TabroomBridgeSetup.zip`, unzip, right-click **Tabroom Bridge Setup** and choose Open. Run it again later to reinstall or remove.
+
+**Terminal**
 
 ```
 python3 tabroom_bridge.py --install-agent
@@ -42,9 +48,11 @@ python3 tabroom_bridge.py --install-agent
 | `--login` | Sign in from the terminal instead of in-app |
 | `--forget` | Erase stored credentials and token |
 
-Run with no flags to keep it in the foreground. Either path copies the helper to `~/Library/Application Support/tabroom-bridge/`, so the download can be deleted afterwards.
+Run with no flags to keep it in the foreground.
 
 </details>
+
+To remove it later: `python3 /usr/local/lib/tabroom-bridge/tabroom_bridge.py --uninstall-agent`
 
 Logs: `~/.config/tabroom-bridge/logs/bridge.log`
 
@@ -129,6 +137,12 @@ A heavy tournament day is roughly 40 upstream calls.
 - The session token is cached for two weeks and renewed automatically
 - The loopback server binds `127.0.0.1` only and rejects any request without the per-launch bridge token
 - Handshake files are written `0600` inside a `0700` directory
+
+## Updating
+
+The plugin updates through CardMirror: **Settings → Plugins → Check for updates** on its row.
+
+The helper updates itself. When the plugin needs a newer one it offers to update in place, and **Tabroom: Update Helper** checks on demand. It downloads the new file from this repository's latest release, refuses anything that does not parse as Python, swaps it atomically, and restarts. You do not need to reinstall the pkg.
 
 ## Known limitations
 

@@ -403,6 +403,58 @@
     return true;
   }
 
+  function roundTime(round) {
+    const raw = round && round.start_time;
+    if (!raw) return null;
+    let value = String(raw).trim();
+    if (/^\d+$/.test(value)) {
+      const n = parseInt(value, 10);
+      return new Date(n < 1e11 ? n * 1000 : n);
+    }
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(value)) value = value.replace(' ', 'T');
+    const parsed = new Date(value);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  function settingNumber(key, fallback) {
+    try {
+      const v = pluginApi.settings.get(key);
+      return typeof v === 'number' && isFinite(v) ? v : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function prune(rounds, windowHours) {
+    const now = Date.now();
+    const cutoff = windowHours > 0 ? now - windowHours * 3600 * 1000 : null;
+    const dated = [];
+    const undated = [];
+    for (const round of rounds) {
+      const when = roundTime(round);
+      if (!when) {
+        undated.push(round);
+        continue;
+      }
+      if (cutoff !== null && when.getTime() < cutoff) continue;
+      dated.push({ round, at: when.getTime() });
+    }
+    dated.sort((a, b) => a.at - b.at);
+    const ordered = dated.map((d) => d.round);
+    return cutoff === null ? ordered.concat(undated) : ordered;
+  }
+
+  function describeAge(round) {
+    const when = roundTime(round);
+    if (!when) return '';
+    const diff = when.getTime() - Date.now();
+    const hours = Math.round(Math.abs(diff) / 3600000);
+    if (hours < 1) return diff >= 0 ? 'starting soon' : 'just now';
+    if (hours < 24) return diff >= 0 ? `in ${hours}h` : `${hours}h ago`;
+    const days = Math.round(hours / 24);
+    return diff >= 0 ? `in ${days}d` : `${days}d ago`;
+  }
+
   async function fetchRounds(force, current, allowLogin) {
     const app = await bridgeApp();
     if (!app) {
@@ -450,10 +502,14 @@
     if (existing) existing.remove();
   }
 
-  function showPicker(rounds, heading) {
+  function showPicker(rounds, heading, windowHours) {
     closeOverlay();
     if (!rounds.length) {
-      toast('No rounds found.');
+      toast(
+        windowHours > 0
+          ? 'No rounds in the last ' + windowHours + ' hours.'
+          : 'No rounds found.'
+      );
       return;
     }
 
@@ -539,7 +595,7 @@
       meta.style.cssText = 'font-size:12px;opacity:.7;margin-bottom:8px';
       meta.textContent = [
         round.judge ? 'Judge: ' + round.judge : '',
-        round.start_time || ''
+        describeAge(round)
       ]
         .filter(Boolean)
         .join('  \u00b7  ');
@@ -596,6 +652,23 @@
     id: PLUGIN_ID,
     name: 'Tabroom Rounds',
     apiVersion: 1,
+    settings: [
+      {
+        key: 'recentWindowHours',
+        label: 'Hide rounds older than (hours)',
+        type: 'number',
+        default: 18,
+        description:
+          'Rounds that started longer ago than this are left out of the round picker. Set to 0 to show everything Tabroom returns.'
+      },
+      {
+        key: 'historyLimit',
+        label: 'Rounds shown in history',
+        type: 'number',
+        default: 25,
+        description: 'How many past rounds "All Rounds This Season" lists, newest first.'
+      }
+    ],
     commands: [
       {
         id: PLUGIN_ID + '.pick',
@@ -605,7 +678,9 @@
         run: async (api) => {
           pluginApi = api;
           const rounds = await fetchRounds(false, true, true);
-          if (rounds) showPicker(rounds, 'Live rounds');
+          if (!rounds) return;
+          const hours = settingNumber('recentWindowHours', 18);
+          showPicker(prune(rounds, hours), 'Current rounds', hours);
         }
       },
       {
@@ -616,7 +691,9 @@
         run: async (api) => {
           pluginApi = api;
           const rounds = await fetchRounds(true, true, true);
-          if (rounds) showPicker(rounds, 'Live rounds');
+          if (!rounds) return;
+          const hours = settingNumber('recentWindowHours', 18);
+          showPicker(prune(rounds, hours), 'Current rounds', hours);
         }
       },
       {
@@ -692,7 +769,10 @@
         run: async (api) => {
           pluginApi = api;
           const rounds = await fetchRounds(true, false, true);
-          if (rounds) showPicker(rounds, 'All rounds');
+          if (!rounds) return;
+          const limit = settingNumber('historyLimit', 25);
+          const ordered = prune(rounds, 0).reverse().slice(0, limit).reverse();
+          showPicker(ordered, 'Recent rounds', 0);
         }
       }
     ]

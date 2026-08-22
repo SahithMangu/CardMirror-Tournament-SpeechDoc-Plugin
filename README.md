@@ -1,0 +1,1 @@
+# CardMirror-Tournament-SpeechDoc-Plugin

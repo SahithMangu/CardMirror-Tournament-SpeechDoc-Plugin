@@ -1,0 +1,48 @@
+#!/bin/bash
+set -u
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT="$HERE/../Resources/tabroom_bridge.py"
+PLIST="$HOME/Library/LaunchAgents/com.sahith.tabroom-bridge.plist"
+
+dialog() {
+  /usr/bin/osascript -e "display dialog \"$1\" with title \"Tabroom Bridge\" buttons {\"OK\"} default button \"OK\"" >/dev/null 2>&1
+}
+
+choose() {
+  /usr/bin/osascript -e "display dialog \"$1\" with title \"Tabroom Bridge\" buttons {\"Cancel\", \"$2\", \"$3\"} default button \"$3\"" 2>/dev/null | sed 's/.*button returned://'
+}
+
+PY=""
+for candidate in /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do
+  if [ -x "$candidate" ] && "$candidate" -c "import sys; sys.exit(0 if sys.version_info >= (3,9) else 1)" >/dev/null 2>&1; then
+    PY="$candidate"
+    break
+  fi
+done
+
+if [ -z "$PY" ]; then
+  dialog "Python 3.9 or newer is required. Open Terminal and run: xcode-select --install"
+  exit 1
+fi
+
+if [ -f "$PLIST" ]; then
+  ANSWER=$(choose "Tabroom Bridge is already installed. Reinstall it, or remove it?" "Remove" "Reinstall")
+  case "$ANSWER" in
+    *Remove*)
+      "$PY" "$SCRIPT" --uninstall-agent >/dev/null 2>&1
+      dialog "Removed. Sign-in details were cleared."
+      exit 0
+      ;;
+    *Reinstall*) ;;
+    *) exit 0 ;;
+  esac
+fi
+
+OUTPUT=$("$PY" "$SCRIPT" --install-agent 2>&1)
+if [ $? -ne 0 ]; then
+  dialog "Setup failed: $OUTPUT"
+  exit 1
+fi
+
+dialog "Tabroom Bridge is running and will start automatically at login. Open CardMirror and run a Tabroom command to sign in."

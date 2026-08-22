@@ -1,0 +1,519 @@
+(() => {
+  'use strict';
+
+  const PLUGIN_ID = 'tabroom-rounds';
+  const BRIDGE_APP = 'tabroom-bridge';
+  const AFF_SPEECHES = ['1AC', '2AC', '1AR', '2AR'];
+  const NEG_SPEECHES = ['1NC', '2NC', '1NR', '2NR'];
+
+  let pluginApi = null;
+
+  function toast(msg) {
+    try {
+      if (pluginApi && pluginApi.showToast) {
+        pluginApi.showToast(String(msg));
+        return;
+      }
+    } catch (_) {}
+    console.log('[Tabroom]', msg);
+  }
+
+  function roundLabel(round) {
+    const r = String(round == null ? '' : round).trim();
+    if (!r) return '';
+    return /^\d+$/.test(r) ? 'Round ' + r : r;
+  }
+
+  function normalizeSide(side) {
+    const s = String(side || '').trim().toUpperCase();
+    if (s === 'A' || s === 'AFF' || s === '1') return 'AFF';
+    if (s === 'N' || s === 'NEG' || s === '2') return 'NEG';
+    return '';
+  }
+
+  function scrub(value) {
+    return String(value == null ? '' : value)
+      .replace(/[\\/:*?"<>|]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function composeName(speech, round, flight) {
+    const parts = [speech, scrub(round.tournament), roundLabel(round.round)];
+    if (flight) parts.push('Flight ' + flight);
+    const name = parts.filter(Boolean).join(' ');
+    const opponent = scrub(round.opponent);
+    return opponent ? name + ' vs ' + opponent : name;
+  }
+
+  function waitFor(selector, timeoutMs) {
+    return new Promise((resolve) => {
+      const found = document.querySelector(selector);
+      if (found) {
+        resolve(found);
+        return;
+      }
+      const observer = new MutationObserver(() => {
+        const el = document.querySelector(selector);
+        if (el) {
+          observer.disconnect();
+          clearTimeout(timer);
+          resolve(el);
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      const timer = setTimeout(() => {
+        observer.disconnect();
+        resolve(null);
+      }, timeoutMs || 4000);
+    });
+  }
+
+  function setNativeValue(input, value) {
+    const proto = Object.getPrototypeOf(input);
+    const setter = Object.getOwnPropertyDescriptor(proto, 'value');
+    if (setter && setter.set) setter.set.call(input, value);
+    else input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function findNewSpeechButton() {
+    const byId =
+      document.getElementById('speech-new-btn') ||
+      document.getElementById('new-speech-btn');
+    if (byId) return byId;
+    const byLabel = document.querySelector(
+      'button[aria-label="New speech document"], button[title="New speech document"]'
+    );
+    if (byLabel) return byLabel;
+    const stack = document.getElementById('speech-stack');
+    if (stack) {
+      const first = stack.querySelector('button');
+      if (first) return first;
+    }
+    return null;
+  }
+
+  async function createSpeechDoc(name) {
+    const button = findNewSpeechButton();
+    if (!button) {
+      await navigator.clipboard.writeText(name).catch(() => {});
+      toast('New Speech button not found. Name copied: ' + name);
+      return false;
+    }
+
+    button.click();
+    const input = await waitFor('.pmd-text-prompt-input', 4000);
+    if (!input) {
+      await navigator.clipboard.writeText(name).catch(() => {});
+      toast('Prompt did not open. Name copied: ' + name);
+      return false;
+    }
+
+    setNativeValue(input, name);
+    const dialog = input.closest('.pmd-route-dialog') || document;
+    const ok = dialog.querySelector('.pmd-text-prompt-ok');
+    if (ok) {
+      ok.click();
+    } else {
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+      );
+    }
+    return true;
+  }
+
+  async function bridgeApp() {
+    if (!pluginApi || typeof pluginApi.flowApps !== 'function') return null;
+    try {
+      const apps = await pluginApi.flowApps();
+      return apps.find((a) => a.id === BRIDGE_APP) || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function showLogin() {
+    closeOverlay();
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.id = 'tabroom-rounds-overlay';
+      overlay.style.cssText =
+        'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.32);display:flex;align-items:center;justify-content:center';
+
+      const dialog = document.createElement('div');
+      dialog.style.cssText =
+        'width:min(420px,calc(100vw - 32px));background:var(--pmd-c-bg,#fff);color:var(--pmd-c-text,#111);border:1px solid var(--pmd-c-border,#bbb);border-radius:10px;box-shadow:0 16px 50px rgba(0,0,0,.28);padding:18px;font:14px system-ui,sans-serif';
+
+      const title = document.createElement('div');
+      title.style.cssText = 'font-size:17px;font-weight:600;margin-bottom:6px';
+      title.textContent = 'Sign in to Tabroom';
+      dialog.appendChild(title);
+
+      const note = document.createElement('div');
+      note.style.cssText = 'font-size:12px;opacity:.7;margin-bottom:14px;line-height:1.4';
+      note.textContent =
+        'Your Tabroom login, sent to openCaselist. The password is stored in your Keychain and never leaves this machine.';
+      dialog.appendChild(note);
+
+      const fields = {};
+      for (const [key, label, type] of [
+        ['username', 'Tabroom email', 'email'],
+        ['password', 'Password', 'password']
+      ]) {
+        const wrap = document.createElement('label');
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin-bottom:10px';
+        const span = document.createElement('span');
+        span.style.cssText = 'font-size:12px;font-weight:600';
+        span.textContent = label;
+        const input = document.createElement('input');
+        input.type = type;
+        input.style.cssText =
+          'box-sizing:border-box;width:100%;padding:8px;border:1px solid var(--pmd-c-border,#bbb);border-radius:6px;background:var(--pmd-c-bg,#fff);color:inherit';
+        wrap.appendChild(span);
+        wrap.appendChild(input);
+        dialog.appendChild(wrap);
+        fields[key] = input;
+      }
+
+      const error = document.createElement('div');
+      error.style.cssText = 'font-size:12px;color:#c0392b;min-height:16px;margin-bottom:6px';
+      dialog.appendChild(error);
+
+      const actions = document.createElement('div');
+      actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:6px';
+      const cancel = document.createElement('button');
+      cancel.textContent = 'Cancel';
+      cancel.style.cssText =
+        'padding:8px 14px;border-radius:6px;border:1px solid var(--pmd-c-border,#aaa);cursor:pointer;background:transparent;color:inherit';
+      const submit = document.createElement('button');
+      submit.textContent = 'Sign in';
+      submit.style.cssText =
+        'padding:8px 14px;border-radius:6px;border:1px solid var(--pmd-c-border,#aaa);cursor:pointer;font-weight:600;background:transparent;color:inherit';
+      actions.appendChild(cancel);
+      actions.appendChild(submit);
+      dialog.appendChild(actions);
+
+      const finish = (value) => {
+        overlay.remove();
+        resolve(value);
+      };
+      cancel.addEventListener('click', () => finish(false));
+      overlay.addEventListener('mousedown', (e) => {
+        if (e.target === overlay) finish(false);
+      });
+
+      const attempt = async () => {
+        const username = fields.username.value.trim();
+        const password = fields.password.value;
+        if (!username || !password) {
+          error.textContent = 'Enter both fields.';
+          return;
+        }
+        submit.disabled = true;
+        submit.textContent = 'Signing in\u2026';
+        error.textContent = '';
+        const res = await pluginApi.flowPost(BRIDGE_APP, '/login', {
+          username,
+          password
+        });
+        submit.disabled = false;
+        submit.textContent = 'Sign in';
+        if (!res.ok) {
+          error.textContent = 'Bridge error: ' + res.error;
+          return;
+        }
+        const body = res.body || {};
+        if (!body.ok) {
+          error.textContent = body.error || 'Sign in failed.';
+          return;
+        }
+        finish(true);
+      };
+
+      submit.addEventListener('click', () => void attempt());
+      for (const input of Object.values(fields)) {
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') void attempt();
+        });
+      }
+      document.addEventListener('keydown', function esc(e) {
+        if (e.key === 'Escape') {
+          document.removeEventListener('keydown', esc);
+          finish(false);
+        }
+      });
+
+      overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
+      setTimeout(() => fields.username.focus(), 30);
+    });
+  }
+
+  async function fetchRounds(force, current, allowLogin) {
+    const app = await bridgeApp();
+    if (!app) {
+      toast('Tabroom Bridge is not registered. Run the helper once.');
+      return null;
+    }
+    if (!app.running) {
+      toast('Tabroom Bridge is not running.');
+      return null;
+    }
+    const res = await pluginApi.flowPost(BRIDGE_APP, '/rounds', {
+      current: current !== false,
+      force: !!force
+    });
+    if (!res.ok) {
+      toast('Bridge error: ' + res.error);
+      return null;
+    }
+    const body = res.body || {};
+    if (!body.ok) {
+      if (body.error === 'not-logged-in') {
+        if (allowLogin === false) {
+          toast('Not signed in.');
+          return null;
+        }
+        const signedIn = await showLogin();
+        if (!signedIn) return null;
+        return fetchRounds(force, current, false);
+      } else if (body.error === 'rate-limited' || body.error === 'throttled') {
+        toast('Slow down — retry in ' + body.retryAfter + 's.');
+      } else {
+        toast('openCaselist error: ' + body.error);
+      }
+      return null;
+    }
+    if (body.stale) {
+      toast('Showing cached rounds; refresh available in ' + body.retryAfter + 's.');
+    }
+    return body.rounds || [];
+  }
+
+  function closeOverlay() {
+    const existing = document.getElementById('tabroom-rounds-overlay');
+    if (existing) existing.remove();
+  }
+
+  function showPicker(rounds, heading) {
+    closeOverlay();
+    if (!rounds.length) {
+      toast('No rounds found.');
+      return;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'tabroom-rounds-overlay';
+    overlay.style.cssText =
+      'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.32);display:flex;align-items:center;justify-content:center';
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText =
+      'width:min(620px,calc(100vw - 32px));max-height:80vh;overflow:auto;background:var(--pmd-c-bg,#fff);color:var(--pmd-c-text,#111);border:1px solid var(--pmd-c-border,#bbb);border-radius:10px;box-shadow:0 16px 50px rgba(0,0,0,.28);padding:16px;font:14px system-ui,sans-serif';
+
+    const header = document.createElement('div');
+    header.style.cssText =
+      'display:flex;justify-content:space-between;align-items:center;font-size:17px;margin-bottom:12px';
+    const title = document.createElement('strong');
+    title.textContent = heading || 'Live rounds';
+    header.appendChild(title);
+    const close = document.createElement('button');
+    close.textContent = '\u00d7';
+    close.style.cssText =
+      'border:0;background:transparent;font-size:24px;cursor:pointer;color:inherit';
+    close.addEventListener('click', closeOverlay);
+    header.appendChild(close);
+    dialog.appendChild(header);
+
+    const flightRow = document.createElement('div');
+    flightRow.style.cssText =
+      'display:flex;gap:8px;align-items:center;margin-bottom:14px;font-size:13px';
+    flightRow.appendChild(document.createTextNode('Flight:'));
+    let flight = pluginApi.storage.get('flight') || '';
+    const flightButtons = [];
+    for (const option of ['', '1', '2']) {
+      const b = document.createElement('button');
+      b.textContent = option === '' ? 'None' : option;
+      b.style.cssText =
+        'padding:4px 12px;border-radius:6px;border:1px solid var(--pmd-c-border,#bbb);cursor:pointer;background:transparent;color:inherit';
+      b.addEventListener('click', () => {
+        flight = option;
+        pluginApi.storage.set('flight', option);
+        for (const sib of flightButtons) {
+          sib.style.background = 'transparent';
+          sib.style.color = 'inherit';
+        }
+        b.style.background = '#2e8b57';
+        b.style.color = '#fff';
+      });
+      if (option === flight) {
+        b.style.background = '#2e8b57';
+        b.style.color = '#fff';
+      }
+      flightButtons.push(b);
+      flightRow.appendChild(b);
+    }
+    dialog.appendChild(flightRow);
+
+    for (const round of rounds) {
+      const side = normalizeSide(round.side);
+      const speeches =
+        side === 'AFF'
+          ? AFF_SPEECHES
+          : side === 'NEG'
+            ? NEG_SPEECHES
+            : AFF_SPEECHES.concat(NEG_SPEECHES);
+
+      const block = document.createElement('div');
+      block.style.cssText =
+        'padding:10px;border:1px solid var(--pmd-c-border,#bbb);border-radius:8px;margin-bottom:10px';
+
+      const line = document.createElement('div');
+      line.style.cssText = 'font-weight:600;margin-bottom:2px';
+      line.textContent = [
+        scrub(round.tournament),
+        roundLabel(round.round),
+        side,
+        round.opponent ? 'vs ' + scrub(round.opponent) : ''
+      ]
+        .filter(Boolean)
+        .join(' ');
+      block.appendChild(line);
+
+      const meta = document.createElement('div');
+      meta.style.cssText = 'font-size:12px;opacity:.7;margin-bottom:8px';
+      meta.textContent = [
+        round.judge ? 'Judge: ' + round.judge : '',
+        round.start_time || ''
+      ]
+        .filter(Boolean)
+        .join('  \u00b7  ');
+      block.appendChild(meta);
+
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
+      for (const speech of speeches) {
+        const b = document.createElement('button');
+        b.textContent = speech;
+        b.style.cssText =
+          'min-width:46px;padding:6px 10px;border-radius:6px;border:1px solid var(--pmd-c-border,#bbb);cursor:pointer;background:transparent;color:inherit';
+        b.addEventListener('click', () => {
+          void select(speech, round, flight);
+        });
+        row.appendChild(b);
+      }
+      block.appendChild(row);
+      dialog.appendChild(block);
+    }
+
+    overlay.appendChild(dialog);
+    overlay.addEventListener('mousedown', (e) => {
+      if (e.target === overlay) closeOverlay();
+    });
+    document.addEventListener('keydown', function esc(e) {
+      if (e.key === 'Escape') {
+        closeOverlay();
+        document.removeEventListener('keydown', esc);
+      }
+    });
+    document.body.appendChild(overlay);
+  }
+
+  async function select(speech, round, flight) {
+    const name = composeName(speech, round, flight);
+    pluginApi.storage.set('lastRound', {
+      speech,
+      flight,
+      tournament: round.tournament,
+      round: round.round,
+      side: normalizeSide(round.side),
+      opponent: round.opponent,
+      judge: round.judge,
+      share: round.share,
+      name,
+      at: Date.now()
+    });
+    closeOverlay();
+    await createSpeechDoc(name);
+  }
+
+  const def = {
+    id: PLUGIN_ID,
+    name: 'Tabroom Rounds',
+    apiVersion: 1,
+    commands: [
+      {
+        id: PLUGIN_ID + '.pick',
+        label: 'Tabroom: New Speech Doc From Round',
+        keywords: ['tabroom', 'round', 'speech', 'pairing', 'tournament'],
+        defaultKey: '',
+        run: async (api) => {
+          pluginApi = api;
+          const rounds = await fetchRounds(false, true, true);
+          if (rounds) showPicker(rounds, 'Live rounds');
+        }
+      },
+      {
+        id: PLUGIN_ID + '.refresh',
+        label: 'Tabroom: Refresh Rounds',
+        keywords: ['tabroom', 'refresh', 'rounds'],
+        defaultKey: '',
+        run: async (api) => {
+          pluginApi = api;
+          const rounds = await fetchRounds(true, true, true);
+          if (rounds) showPicker(rounds, 'Live rounds');
+        }
+      },
+      {
+        id: PLUGIN_ID + '.signin',
+        label: 'Tabroom: Sign In',
+        keywords: ['tabroom', 'sign in', 'login', 'account'],
+        defaultKey: '',
+        run: async (api) => {
+          pluginApi = api;
+          const app = await bridgeApp();
+          if (!app) {
+            toast('Tabroom Bridge is not registered.');
+            return;
+          }
+          if (!app.running) {
+            toast('Tabroom Bridge is not running.');
+            return;
+          }
+          const ok = await showLogin();
+          if (ok) toast('Signed in to Tabroom.');
+        }
+      },
+      {
+        id: PLUGIN_ID + '.signout',
+        label: 'Tabroom: Sign Out',
+        keywords: ['tabroom', 'sign out', 'logout', 'forget'],
+        defaultKey: '',
+        run: async (api) => {
+          pluginApi = api;
+          const res = await pluginApi.flowPost(BRIDGE_APP, '/logout', {});
+          toast(res.ok ? 'Signed out and credentials cleared.' : 'Bridge error: ' + res.error);
+        }
+      },
+      {
+        id: PLUGIN_ID + '.all',
+        label: 'Tabroom: All Rounds This Season',
+        keywords: ['tabroom', 'history', 'all rounds', 'season'],
+        defaultKey: '',
+        run: async (api) => {
+          pluginApi = api;
+          const rounds = await fetchRounds(true, false, true);
+          if (rounds) showPicker(rounds, 'All rounds');
+        }
+      }
+    ]
+  };
+
+  try {
+    window.__registerCardMirrorPlugin?.(def);
+  } catch (e) {
+    console.error('[Tabroom Rounds] registration failed', e);
+  }
+})();

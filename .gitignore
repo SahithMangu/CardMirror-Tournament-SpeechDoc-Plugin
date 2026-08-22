@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+state.json
+*.session.json
+.DS_Store
+logs/
+TabroomBridgeSetup.zip

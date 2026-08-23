@@ -4,7 +4,7 @@ A CardMirror plugin that creates speech documents named from your live Tabroom p
 
 Instead of typing `1AC Harvard Round 1 vs Ridge AM` by hand every round, pick the round from a list and the document is created and named for you. Same idea as Verbatim's speech-doc dropdown, built for CardMirror.
 
-> **Works on macOS, Windows, and Linux.** Only the one-click installer is macOS-only — on Windows and Linux you start the helper yourself with one command and everything else behaves the same. See [Platform support](#platform-support).
+> **macOS only.** See [Platform support](#platform-support).
 
 ## How it works
 
@@ -47,32 +47,26 @@ To erase everything, including the saved login, see [Removing it](#removing-it).
 
 ## Platform support
 
-**The installer is macOS-only. The plugin and the helper itself are not.**
+**This is macOS only.** Windows and Linux are not supported.
 
-| | Plugin | Helper runs | One-click install + autostart |
-| --- | --- | --- | --- |
-| **macOS** | yes | yes | yes — `TabroomBridge.pkg` |
-| **Windows** | yes | yes, started manually | no |
-| **Linux** | yes | yes, started manually | no |
-| **CardMirror web edition** | no | — | — |
+| | Supported |
+| --- | --- |
+| **macOS** | yes |
+| **Windows** | no |
+| **Linux** | no |
+| **CardMirror web edition** | no |
 
-What is macOS-only is the *packaging*: the `.pkg`, the LaunchAgent that starts the helper at login, and storing your password in the Keychain.
+I only have a Mac. I will not tell people to run something on a system I have never been able to test on — the instructions could be subtly wrong, and the person finding out would be someone mid-tournament. So rather than ship half-supported guesswork, Windows and Linux are simply out of scope for now.
 
-**On why there is no Windows `.exe`:** I do not currently have a Windows machine, so I cannot build and *test* an installer, and I would rather ship no installer than an untested one. Windows support is otherwise real — the helper runs there fine, you just launch it yourself. A proper installer is planned if I get access to a Windows machine.
+If that changes and I can properly test on those systems, support may be added later. Until then, please do not run the helper on Windows or Linux and expect it to behave.
 
-Everything underneath is portable. The helper is plain Python and already resolves the shared bridge directory correctly on all three platforms — `%APPDATA%\cardmirror-bridge` on Windows, `$XDG_DATA_HOME/cardmirror-bridge` (or `~/.local/share/...`) on Linux — matching where CardMirror looks. Step-by-step instructions are in [Windows and Linux](#windows-and-linux) below, written for people who have never opened a terminal.
-
-**Requirement:** Python 3.9 or newer, which you may already have. Nothing else — the helper uses only Python's standard library, so there is never a `pip install` step. macOS ships with a suitable Python already; on Windows you install it once from [python.org](https://www.python.org/downloads/).
-
-The web edition is genuinely out of scope: it has no Electron host, so `flowApps`/`flowPost` do not exist and there is no way to reach a local process at all.
+The web edition of CardMirror is out of scope for a different and permanent reason: it has no Electron host, so the `flowApps`/`flowPost` bridge does not exist and there is no way for a plugin to reach a local process at all.
 
 ## Install
 
 There are two pieces: a **plugin** inside CardMirror, and a small **helper** that runs in the background. You need both. The helper exists because openCaselist authenticates with a cookie, and a plugin running inside CardMirror's browser engine is not allowed to send one.
 
 ### 1. The helper
-
-#### macOS
 
 Download **TabroomBridge.pkg** from the [latest release](../../releases/latest) and open it.
 
@@ -110,74 +104,6 @@ To remove it later: `python3 /usr/local/lib/tabroom-bridge/tabroom_bridge.py --u
 
 Logs: `~/.config/tabroom-bridge/logs/bridge.log`
 
-#### Windows and Linux
-
-> **There is no Windows installer, and I am sorry about that.** I do not own a Windows machine, so I have no way to build and actually *test* a `.exe` or `.msi` — and shipping an installer I have never run is a good way to break someone's computer the night before a tournament. The manual steps below do exactly what the Mac installer does. If I get access to a Windows machine, a proper installer is the first thing I will add.
-
-Nothing about the plugin is worse on Windows or Linux. The only difference is that you start the helper yourself instead of an installer doing it for you.
-
-**You will need Python.** That is the only requirement — this tool uses nothing but Python's built-in library, so there is no `pip install` step and nothing else to download.
-
-<br>
-
-**Step 1 — Install Python (if you do not have it)**
-
-Windows: download it from **[python.org/downloads](https://www.python.org/downloads/)** and run the installer.
-
-> ⚠️ On the very first screen of the Python installer, tick the box that says **"Add python.exe to PATH"** before clicking Install. It is easy to miss, and if you skip it the commands below will not work. If you already installed Python without it, just run the installer again and choose Modify.
-
-Linux: you almost certainly already have it. If not, `sudo apt install python3` on Ubuntu/Debian, or `sudo dnf install python3` on Fedora.
-
-**Step 2 — Open a terminal**
-
-- **Windows:** press the Start button, type `cmd`, and press Enter. A black window opens. That is Command Prompt.
-- **Linux:** press `Ctrl` + `Alt` + `T`, or search for "Terminal" in your applications.
-
-**Step 3 — Check Python is working**
-
-Type this and press Enter:
-
-```
-py --version
-```
-
-On Linux, and on Windows if `py` is not recognised, use `python3 --version` instead. You should see something like `Python 3.12.1`. Anything **3.9 or higher** is fine. If you instead get "not recognised as an internal or external command", Python is not on your PATH — redo Step 1 and make sure that checkbox is ticked.
-
-**Step 4 — Download the helper**
-
-Get **`tabroom_bridge.py`** from the [latest release](../../releases/latest). It will land in your Downloads folder. It is a single text file — you can open it in Notepad and read the whole thing if you want to.
-
-**Step 5 — Point the terminal at that folder**
-
-The terminal is always "in" one folder at a time, and it can only run a file that is in the folder it is currently in. `cd` means "change directory". Type:
-
-```
-cd %USERPROFILE%\Downloads
-```
-
-On Linux that is `cd ~/Downloads`. If you saved the file somewhere else, put that folder's path there instead.
-
-**Step 6 — Start the helper**
-
-```
-py tabroom_bridge.py
-```
-
-On Linux, `python3 tabroom_bridge.py`.
-
-You should see a line saying it is listening. **Leave this window open.**
-
-If Windows ever shows a firewall prompt, you can safely click **Cancel** or deny it. The helper only ever listens on `127.0.0.1`, which means your own computer and nothing else — it does not need, and will not use, any network access to work. You can minimise it, but if you close it the helper stops and CardMirror will say it cannot find it. Now open CardMirror and sign in exactly as the Mac instructions describe — the plugin will find the helper on its own.
-
-<br>
-
-**Two things that differ from the Mac version**
-
-- **It does not start automatically.** Repeat Step 6 each time you restart your computer. If you would rather it start on its own, set up a **Task Scheduler** task set to "At log on" (Windows) or a **systemd user unit** in `~/.config/systemd/user/` enabled with `systemctl --user enable --now` (Linux).
-- **Your password is stored in a permission-locked file** in your config folder rather than in the macOS Keychain, because Windows and Linux have no single equivalent. Everything else is identical — the helper still only listens on your own machine, still requires a token, and still rate-limits itself.
-
-`--login`, `--forget`, and `--uninstall-agent` all work here. `--install-agent` is the only macOS-only flag.
-
 ### 2. The plugin
 
 Make sure **Settings → Plugins → Enable plugins** is on.
@@ -210,8 +136,6 @@ Download `cardmirror-plugin.json` and `plugin.js` from the latest release and pu
     cardmirror-plugin.json
     plugin.js
 ```
-
-On Windows that folder is `%APPDATA%\@cardmirror\desktop\plugins\tabroom-rounds\`, and on Linux `~/.config/@cardmirror/desktop/plugins/tabroom-rounds/`.
 
 If you are not sure, the surest way to find it is to install any plugin from GitHub first and look at where it landed.
 
@@ -314,22 +238,13 @@ python3 /usr/local/lib/tabroom-bridge/tabroom_bridge.py --uninstall-agent
 sudo rm -rf /usr/local/lib/tabroom-bridge ~/.config/tabroom-bridge
 ```
 
-On **Windows and Linux** there is no installer, so there is nothing to uninstall — stop the helper by closing its terminal window (or pressing `Ctrl` + `C` in it), then delete these if you want it gone completely:
-
-- the `tabroom_bridge.py` file you downloaded
-- `%APPDATA%\tabroom-bridge` (Windows) or `~/.config/tabroom-bridge` (Linux) — this holds your saved login
-- `%APPDATA%\cardmirror-bridge\tabroom-bridge.json` (Windows) or `~/.local/share/cardmirror-bridge/tabroom-bridge.json` (Linux)
-
-Or let the helper do the last two for you: `py tabroom_bridge.py --forget`.
-
-`uninstall.sh` is written for macOS and is not needed on Windows or Linux.
-
 **The plugin** — **Settings → Plugins → Tabroom Rounds → Uninstall** inside CardMirror.
 
 ## Known limitations
 
 - The plugin drives CardMirror's New Speech Document button and prompt through the DOM, since the v1 plugin API has no document-creation method. CardMirror is in alpha, so these selectors may break on an update. When they do, the composed name is copied to the clipboard instead
 - Requires `flowApps` / `flowPost` in the plugin API. Older builds will report that the bridge is not registered
+- macOS only. See [Platform support](#platform-support)
 - Desktop only. The web edition has no Electron host and no bridge
 - `current=true` returns nothing outside a tournament window. Use **All Rounds This Season** to confirm the connection works
 

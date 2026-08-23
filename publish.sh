@@ -20,6 +20,27 @@ VERSION=$(python3 -c "import json;print(json.load(open('cardmirror-plugin.json')
 [ -n "$VERSION" ] || fail "Could not read version from cardmirror-plugin.json"
 TAG="v$VERSION"
 
+# Keep the helper's APP_VERSION locked to the manifest version. When these
+# drifted, the helper compared its hardcoded "1.0.0" against the release tag,
+# so every update check reported an update, reapplied the same file and
+# restarted -- forever.
+step "Stamping helper version $VERSION"
+python3 - "$VERSION" <<'STAMP'
+import re, sys
+version = sys.argv[1]
+path = "tabroom_bridge.py"
+src = open(path).read()
+new, n = re.subn(r'^APP_VERSION = "[^"]*"',
+                 f'APP_VERSION = "{version}"', src, count=1, flags=re.M)
+if n != 1:
+    sys.exit("could not find APP_VERSION in tabroom_bridge.py")
+if new != src:
+    open(path, "w").write(new)
+    print(f"APP_VERSION -> {version}")
+else:
+    print(f"APP_VERSION already {version}")
+STAMP
+
 step "Building the installer"
 if command -v pkgbuild >/dev/null 2>&1; then
   ./build-pkg.sh >/dev/null && echo "built TabroomBridge.pkg"

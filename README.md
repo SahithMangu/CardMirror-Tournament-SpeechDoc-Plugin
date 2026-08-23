@@ -152,6 +152,11 @@ Specifics worth knowing:
 
 To erase everything, including the saved login, see [Removing it](#removing-it).
 
+[SECURITY.md](SECURITY.md) has the fuller version: exactly how your password is
+stored and what that does and does not protect against, the local listener's
+token, how to verify a release matches this source, and a plain list of the known
+weaknesses. It is also where to report a vulnerability privately.
+
 ## Platform support
 
 **This is macOS only.** Windows and Linux are not supported.

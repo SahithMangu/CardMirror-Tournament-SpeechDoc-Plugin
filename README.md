@@ -165,7 +165,9 @@ py tabroom_bridge.py
 
 On Linux, `python3 tabroom_bridge.py`.
 
-You should see a line saying it is listening. **Leave this window open.** You can minimise it, but if you close it the helper stops and CardMirror will say it cannot find it. Now open CardMirror and sign in exactly as the Mac instructions describe — the plugin will find the helper on its own.
+You should see a line saying it is listening. **Leave this window open.**
+
+If Windows ever shows a firewall prompt, you can safely click **Cancel** or deny it. The helper only ever listens on `127.0.0.1`, which means your own computer and nothing else — it does not need, and will not use, any network access to work. You can minimise it, but if you close it the helper stops and CardMirror will say it cannot find it. Now open CardMirror and sign in exactly as the Mac instructions describe — the plugin will find the helper on its own.
 
 <br>
 
@@ -311,6 +313,16 @@ python3 /usr/local/lib/tabroom-bridge/tabroom_bridge.py --forget
 python3 /usr/local/lib/tabroom-bridge/tabroom_bridge.py --uninstall-agent
 sudo rm -rf /usr/local/lib/tabroom-bridge ~/.config/tabroom-bridge
 ```
+
+On **Windows and Linux** there is no installer, so there is nothing to uninstall — stop the helper by closing its terminal window (or pressing `Ctrl` + `C` in it), then delete these if you want it gone completely:
+
+- the `tabroom_bridge.py` file you downloaded
+- `%APPDATA%\tabroom-bridge` (Windows) or `~/.config/tabroom-bridge` (Linux) — this holds your saved login
+- `%APPDATA%\cardmirror-bridge\tabroom-bridge.json` (Windows) or `~/.local/share/cardmirror-bridge/tabroom-bridge.json` (Linux)
+
+Or let the helper do the last two for you: `py tabroom_bridge.py --forget`.
+
+`uninstall.sh` is written for macOS and is not needed on Windows or Linux.
 
 **The plugin** — **Settings → Plugins → Tabroom Rounds → Uninstall** inside CardMirror.
 

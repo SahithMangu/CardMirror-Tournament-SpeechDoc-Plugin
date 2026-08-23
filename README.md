@@ -55,7 +55,7 @@ macOS blocks unsigned installers the first time, so right-click the pkg and choo
 
 It installs a small background service that starts at login. No terminal, and no credentials up front — you sign in from inside CardMirror.
 
-The service idles at about 21 MB of memory and no measurable CPU. It only contacts openCaselist when you ask it for rounds.
+The service idles at about 11 MB of memory and no measurable CPU. It only contacts openCaselist when you ask it for rounds.
 
 <details>
 <summary>Other install methods</summary>
@@ -111,12 +111,14 @@ Restart CardMirror. Installing this way means the plugin's row in Settings gets 
 Download `cardmirror-plugin.json` and `plugin.js` from the latest release and put them in a folder named exactly `tabroom-rounds`:
 
 ```
-~/Library/Application Support/CardMirror/plugins/tabroom-rounds/
+~/Library/Application Support/@cardmirror/desktop/plugins/tabroom-rounds/
     cardmirror-plugin.json
     plugin.js
 ```
 
-On Windows that folder is `%APPDATA%\CardMirror\plugins\tabroom-rounds\`, and on Linux `~/.config/CardMirror/plugins/tabroom-rounds/`.
+On Windows that folder is `%APPDATA%\@cardmirror\desktop\plugins\tabroom-rounds\`, and on Linux `~/.config/@cardmirror/desktop/plugins/tabroom-rounds/`.
+
+If you are not sure, the surest way to find it is to install any plugin from GitHub first and look at where it landed.
 
 Restart CardMirror. The folder name has to match the `id` in the manifest exactly, or the plugin is skipped without an error. Manual installs get no update checks.
 
@@ -184,13 +186,13 @@ ps -o pid,rss,%cpu,etime,command -p $(pgrep -f tabroom_bridge)
 Still, if you want it off between tournaments:
 
 ```bash
-launchctl bootout gui/$(id -u)/com.sahith.tabroom-bridge
+launchctl bootout gui/$(id -u)/com.tabroombridge.helper
 ```
 
 And to start it again:
 
 ```bash
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.sahith.tabroom-bridge.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.tabroombridge.helper.plist
 ```
 
 While it is stopped the plugin reports that the helper is not running, and everything else in CardMirror is unaffected.

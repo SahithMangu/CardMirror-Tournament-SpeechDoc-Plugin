@@ -8,7 +8,8 @@
 # Settings > Plugins > Tabroom Rounds > Uninstall.
 set -uo pipefail
 
-LABEL="com.sahith.tabroom-bridge"
+LABEL="com.tabroombridge.helper"
+LEGACY_LABELS=("com.sahith.tabroom-bridge")
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 INSTALL_DIR="/usr/local/lib/tabroom-bridge"
 SUPPORT_DIR="$HOME/Library/Application Support/tabroom-bridge"
@@ -24,6 +25,12 @@ step "Stopping the helper"
 launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null \
   || launchctl unload "$PLIST" 2>/dev/null \
   || true
+# Versions before 1.2.0 installed under a different label.
+for legacy in "${LEGACY_LABELS[@]}"; do
+  launchctl bootout "gui/$(id -u)/$legacy" 2>/dev/null || true
+  legacy_plist="$HOME/Library/LaunchAgents/$legacy.plist"
+  [ -e "$legacy_plist" ] && rm -f "$legacy_plist" && gone "$legacy_plist"
+done
 # KeepAlive means launchd may have restarted it; make sure it is actually down.
 sleep 1
 if pgrep -f tabroom_bridge.py >/dev/null 2>&1; then

@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-IDENTIFIER="com.sahith.tabroom-bridge"
+IDENTIFIER="com.tabroombridge.helper"
 VERSION=$(python3 -c "import json;print(json.load(open('cardmirror-plugin.json'))['version'])")
 BUILD="build-pkg"
 ROOT="$BUILD/root"
@@ -32,7 +32,8 @@ fi
 USER_HOME=$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory | /usr/bin/awk '{print $2}')
 USER_UID=$(/usr/bin/id -u "$CONSOLE_USER")
 INSTALL_DIR="/usr/local/lib/tabroom-bridge"
-LABEL="com.sahith.tabroom-bridge"
+LABEL="com.tabroombridge.helper"
+LEGACY_LABEL="com.sahith.tabroom-bridge"
 PLIST="$USER_HOME/Library/LaunchAgents/$LABEL.plist"
 LOGS="$USER_HOME/.config/tabroom-bridge/logs"
 
@@ -78,6 +79,11 @@ fi
 PLISTEOF
 
 /usr/sbin/chown -R "$CONSOLE_USER" "$PLIST" "$USER_HOME/.config/tabroom-bridge"
+
+# Older versions installed under a different label; remove that agent first
+# so launchd is not left running two helpers against the same bridge files.
+/bin/launchctl bootout "gui/$USER_UID/$LEGACY_LABEL" 2>/dev/null || true
+/bin/rm -f "$USER_HOME/Library/LaunchAgents/$LEGACY_LABEL.plist" 2>/dev/null || true
 
 /bin/launchctl bootout "gui/$USER_UID/$LABEL" 2>/dev/null || true
 /bin/launchctl bootstrap "gui/$USER_UID" "$PLIST" 2>/dev/null \

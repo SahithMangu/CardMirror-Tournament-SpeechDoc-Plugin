@@ -26,7 +26,11 @@ TOKEN_HEADER = "X-Bridge-Token"
 
 API = "https://api.opencaselist.com/v1"
 KEYCHAIN_SERVICE = "tabroom-bridge-opencaselist"
-AGENT_LABEL = "com.sahith.tabroom-bridge"
+AGENT_LABEL = "com.tabroombridge.helper"
+# Labels this helper used to install under. Installing or uninstalling must
+# clear these too, or launchd keeps the old agent alive alongside the new one
+# and two helpers fight over the same bridge registration files.
+LEGACY_AGENT_LABELS = ("com.sahith.tabroom-bridge",)
 ROUNDS_TTL = 45.0
 MIN_UPSTREAM_INTERVAL = 10.0
 BUDGET_WINDOW = 15 * 60.0
@@ -619,10 +623,30 @@ def resolve_python() -> str:
     return exe or "/usr/bin/python3"
 
 
+def remove_legacy_agents() -> None:
+    """Stop and delete agents installed under a previous label."""
+    for label in LEGACY_AGENT_LABELS:
+        path = Path.home() / "Library" / "LaunchAgents" / f"{label}.plist"
+        uid = os.getuid()
+        subprocess.run(
+            ["launchctl", "bootout", f"gui/{uid}/{label}"], capture_output=True
+        )
+        subprocess.run(["launchctl", "unload", str(path)], capture_output=True)
+        try:
+            path.unlink()
+            print(f"Removed old helper agent: {label}")
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass
+
+
 def install_agent() -> None:
     if sys.platform != "darwin":
         print("LaunchAgent install is macOS only.")
         sys.exit(1)
+
+    remove_legacy_agents()
 
     home = support_dir()
     home.mkdir(parents=True, exist_ok=True)
@@ -658,7 +682,11 @@ def install_agent() -> None:
 
 
 def uninstall_agent() -> None:
+    remove_legacy_agents()
     path = agent_plist_path()
+    subprocess.run(
+        ["launchctl", "bootout", f"gui/{os.getuid()}/{AGENT_LABEL}"], capture_output=True
+    )
     subprocess.run(["launchctl", "unload", str(path)], capture_output=True)
     try:
         path.unlink()

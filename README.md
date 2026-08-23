@@ -16,6 +16,33 @@ The helper (`tabroom_bridge.py`) logs into openCaselist with your Tabroom creden
 
 A helper is needed because openCaselist authenticates with a `SameSite=Lax` cookie, and browsers refuse to send it cross-site — a plugin running inside CardMirror cannot set a `Cookie` header. A normal process can.
 
+## Your data stays on your computer
+
+**This plugin collects nothing. Not your login, not your rounds, not usage data — nothing is sent to the author or to any third party.** There is no analytics, no telemetry, no crash reporting, no "phone home". I have no server, and I cannot see that you are using this.
+
+Everything runs on your own machine. In full, the only network connections anything here makes are:
+
+| Connection | Why | What is sent |
+| --- | --- | --- |
+| `api.opencaselist.com` | Fetch **your own** pairings | Your openCaselist login, then your session token. This is the same site Verbatim uses, and the same account you already have. |
+| `api.github.com` | Check whether a newer helper version exists | Nothing about you — just a public request for the latest release number. |
+| `github.com` | Only if you click the download link in the "helper needed" dialog | Nothing — it opens this repo's releases page in your browser. |
+
+That is the complete list. You can confirm it yourself:
+
+```bash
+grep -oE "https?://[a-zA-Z0-9./_-]+" tabroom_bridge.py plugin.js | sort -u
+```
+
+Specifics worth knowing:
+
+- **Your password** is stored in the **macOS Keychain**, not in a file, and is used only to renew your openCaselist session when the two-week token expires. It is never written to disk in plain text and never leaves your machine except to log in to openCaselist.
+- **The helper is not reachable from the internet.** It binds to `127.0.0.1` (loopback only) on a random port, and every request must carry a token that is regenerated each time it starts. Nothing outside your computer can reach it — not other machines on your Wi-Fi, not the tournament network.
+- **Your rounds are never uploaded anywhere.** They are fetched from openCaselist, cached in memory for 45 seconds, and used to name a document.
+- **Everything is readable.** The helper is a single Python file with no dependencies, and the plugin is a single JavaScript file. Both are in this repo, and both are short enough to read end to end.
+
+To erase everything, including the saved login, see [Removing it](#removing-it).
+
 ## Install
 
 There are two pieces: a **plugin** inside CardMirror, and a small **helper** that runs in the background. You need both. The helper exists because openCaselist authenticates with a cookie, and a plugin running inside CardMirror's browser engine is not allowed to send one.
@@ -146,12 +173,69 @@ The plugin updates through CardMirror: **Settings → Plugins → Check for upda
 
 The helper updates itself. When the plugin needs a newer one it offers to update in place, and **Tabroom: Update Helper** checks on demand. It downloads the new file from this repository's latest release, refuses anything that does not parse as Python, swaps it atomically, and restarts. You do not need to reinstall the pkg.
 
+## Pausing the helper
+
+The helper is idle almost all the time. It sits blocked on a loopback socket and does no polling, no timers, and no background work — it wakes only when CardMirror asks it for rounds. On a typical Mac it uses around **11 MB of memory and 0.0% CPU**. Check yours:
+
+```bash
+ps -o pid,rss,%cpu,etime,command -p $(pgrep -f tabroom_bridge)
+```
+
+Still, if you want it off between tournaments:
+
+```bash
+launchctl bootout gui/$(id -u)/com.sahith.tabroom-bridge
+```
+
+And to start it again:
+
+```bash
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.sahith.tabroom-bridge.plist
+```
+
+While it is stopped the plugin reports that the helper is not running, and everything else in CardMirror is unaffected.
+
+It has to be *running* to be reachable, not merely installed: CardMirror checks that the helper's process is alive before it will open a connection, so an on-demand "start it when needed" setup is not possible from the plugin side. Stopping and starting it is manual, by design.
+
+## Removing it
+
+Two pieces, removed separately.
+
+**The helper** — run the uninstaller from this repo:
+
+```bash
+./uninstall.sh
+```
+
+It stops the helper, deletes the saved login from the Keychain, and removes the LaunchAgent, the installed script, the logs, and the bridge registration. Pass `--keep-login` to leave your Keychain entry alone. It asks for your admin password once, because the pkg installed `/usr/local/lib/tabroom-bridge` as root.
+
+If you would rather not run a script, the helper can do most of it itself:
+
+```bash
+python3 /usr/local/lib/tabroom-bridge/tabroom_bridge.py --forget
+python3 /usr/local/lib/tabroom-bridge/tabroom_bridge.py --uninstall-agent
+sudo rm -rf /usr/local/lib/tabroom-bridge ~/.config/tabroom-bridge
+```
+
+**The plugin** — **Settings → Plugins → Tabroom Rounds → Uninstall** inside CardMirror.
+
 ## Known limitations
 
 - The plugin drives CardMirror's New Speech Document button and prompt through the DOM, since the v1 plugin API has no document-creation method. CardMirror is in alpha, so these selectors may break on an update. When they do, the composed name is copied to the clipboard instead
 - Requires `flowApps` / `flowPost` in the plugin API. Older builds will report that the bridge is not registered
 - Desktop only. The web edition has no Electron host and no bridge
 - `current=true` returns nothing outside a tournament window. Use **All Rounds This Season** to confirm the connection works
+
+## Thanks
+
+This plugin is a thin layer on top of other people's work, and it would not exist without them.
+
+- **[Anthony Trufanov](https://github.com/ant981228)** — for [CardMirror](https://github.com/ant981228/cardmirror), and for building it with a real plugin system and a documented bridge for outside processes. Almost everything here hangs off hooks he chose to expose rather than keep private.
+- **[Aaron Hardy](https://paperlessdebate.com/)** — for [Verbatim](https://paperlessdebate.com/verbatim/), which set the standard for what paperless debate software should do, and for [openCaselist](https://github.com/ashtarcommunications/caselist), whose `/tabroom/rounds` endpoint is the only reason a tool like this can see your pairings at all. Verbatim's speech-doc dropdown is the feature this plugin is chasing, and its approach showed the way. Both are free and open source.
+
+Thanks also to the **Tabroom** team at the NSDA for running the infrastructure the whole activity depends on.
+
+Any bugs here are mine, not theirs. Please report issues to this repository rather than to them.
 
 ## License
 

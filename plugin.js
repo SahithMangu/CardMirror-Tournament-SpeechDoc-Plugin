@@ -101,6 +101,25 @@
     return pluginApi;
   }
 
+  // Commands hand over the real api. Take it, and use the one thing the shim
+  // cannot provide — a settings-change subscription — so toggling the ribbon
+  // button in Settings applies at once instead of on the next DOM mutation.
+  let watchingSettings = false;
+  function adoptApi(api) {
+    pluginApi = api;
+    if (watchingSettings) return;
+    try {
+      if (api.settings && typeof api.settings.onChanged === 'function') {
+        api.settings.onChanged(() => {
+          try {
+            mountButton();
+          } catch (_) {}
+        });
+        watchingSettings = true;
+      }
+    } catch (_) {}
+  }
+
   function roundLabel(round) {
     const r = String(round == null ? '' : round).trim();
     if (!r) return '';
@@ -501,16 +520,19 @@
 
   function settingNumber(key, fallback) {
     try {
-      const v = pluginApi.settings.get(key);
+      const v = ensureApi().settings.get(key);
       return typeof v === 'number' && isFinite(v) ? v : fallback;
     } catch (_) {
       return fallback;
     }
   }
 
+  // Must go through ensureApi(): the ribbon button is evaluated before any
+  // command has run, and reading a null pluginApi would silently fall back to
+  // the default — making the Settings toggle look broken.
   function settingBool(key, fallback) {
     try {
-      const v = pluginApi && pluginApi.settings ? pluginApi.settings.get(key) : undefined;
+      const v = ensureApi().settings.get(key);
       return typeof v === 'boolean' ? v : fallback;
     } catch (_) {
       return fallback;
@@ -861,7 +883,7 @@
         keywords: ['tabroom', 'round', 'speech', 'pairing', 'tournament'],
         defaultKey: '',
         run: async (api) => {
-          pluginApi = api;
+          adoptApi(api);
           await openRoundPicker();
         }
       },
@@ -871,7 +893,7 @@
         keywords: ['tabroom', 'refresh', 'rounds'],
         defaultKey: '',
         run: async (api) => {
-          pluginApi = api;
+          adoptApi(api);
           const rounds = await fetchRounds(true, true, true);
           if (!rounds) return;
           const hours = settingNumber('recentWindowHours', 18);
@@ -884,7 +906,7 @@
         keywords: ['tabroom', 'sign in', 'login', 'account'],
         defaultKey: '',
         run: async (api) => {
-          pluginApi = api;
+          adoptApi(api);
           const app = await bridgeApp();
           if (!app) {
             showHelperNeeded();
@@ -904,7 +926,7 @@
         keywords: ['tabroom', 'update', 'helper', 'bridge', 'version'],
         defaultKey: '',
         run: async (api) => {
-          pluginApi = api;
+          adoptApi(api);
           const app = await bridgeApp();
           if (!app) {
             showHelperNeeded();
@@ -938,7 +960,7 @@
         keywords: ['tabroom', 'sign out', 'logout', 'forget'],
         defaultKey: '',
         run: async (api) => {
-          pluginApi = api;
+          adoptApi(api);
           const res = await pluginApi.flowPost(BRIDGE_APP, '/logout', {});
           toast(res.ok ? 'Signed out and credentials cleared.' : 'Bridge error: ' + res.error);
         }
@@ -949,7 +971,7 @@
         keywords: ['tabroom', 'history', 'all rounds', 'season'],
         defaultKey: '',
         run: async (api) => {
-          pluginApi = api;
+          adoptApi(api);
           const rounds = await fetchRounds(true, false, true);
           if (!rounds) return;
           const limit = settingNumber('historyLimit', 25);

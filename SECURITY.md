@@ -68,6 +68,13 @@ TLS certificates are verified (Python's default `ssl` context, `CERT_REQUIRED`
 with hostname checking), so intercepting these requests requires a CA your machine
 already trusts.
 
+This list is enforced, not just documented. `.allowed-hosts` holds the approved
+hosts and a [GitHub Action](.github/workflows/network-surface.yml) fails the build
+if the source references any other. It runs on pull requests too, including from
+forks, so a change that adds a host cannot be merged without it showing up red.
+The README has step-by-step instructions for confirming this yourself, including
+how to make the check fail on purpose.
+
 ## Local listener
 
 The helper runs an HTTP server bound to **`127.0.0.1` only**, on an

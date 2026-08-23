@@ -1,5 +1,7 @@
 # Tabroom Rounds
 
+[![network surface](https://github.com/SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin/actions/workflows/network-surface.yml/badge.svg)](https://github.com/SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin/actions/workflows/network-surface.yml)
+
 A CardMirror plugin that creates speech documents named from your live Tabroom pairings.
 
 Instead of typing `1AC Harvard Round 1 vs Ridge AM` by hand every round, pick the round from a list and the document is created and named for you. Same idea as Verbatim's speech-doc dropdown, built for CardMirror.
@@ -150,6 +152,44 @@ push if a hostname appears in the source that is not on that list. Adding one
 takes a visible commit to that file. It is a static scan, so it catches drift and
 sloppiness rather than someone deliberately hiding a request — but it means this
 table cannot quietly go stale.
+
+<details>
+<summary><strong>Check that for yourself</strong> — including proving the check actually fails</summary>
+
+A guard nobody has watched fail is not worth much, so here is how to confirm it
+works. None of this requires trusting me.
+
+**1. Look at the runs.** The
+[Actions history](https://github.com/SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin/actions/workflows/network-surface.yml)
+is public — no login needed. Every commit shows a pass or fail, and each run's log
+prints every host it found and where.
+
+**2. Read it.** Three short files: [`.allowed-hosts`](.allowed-hosts),
+[`scripts/check_hosts.py`](scripts/check_hosts.py), and
+[the workflow](.github/workflows/network-surface.yml).
+
+**3. Run it yourself.**
+
+```bash
+git clone https://github.com/SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin
+cd CardMirror-Tournament-SpeechDoc-Plugin
+python3 scripts/check_hosts.py
+```
+
+**4. Prove it is not a no-op.** Add a host that is not approved, and watch it fail:
+
+```bash
+echo '_TEST = "https://collector.example.net/track"' >> tabroom_bridge.py
+python3 scripts/check_hosts.py; echo "exit: $?"   # exit: 1, naming the file and line
+git checkout tabroom_bridge.py                    # undo
+```
+
+**5. Make GitHub do it.** Fork the repo, push that same line, and the Action runs
+on your fork and goes red. It also runs on pull requests, including from forks, and
+uses no secrets — so a PR that adds a new hostname fails publicly, in the open,
+before anyone merges it.
+
+</details>
 
 Specifics worth knowing:
 

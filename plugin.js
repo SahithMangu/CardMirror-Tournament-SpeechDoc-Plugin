@@ -6,7 +6,34 @@
   const AFF_SPEECHES = ['1AC', '2AC', '1AR', '2AR'];
   const NEG_SPEECHES = ['1NC', '2NC', '1NR', '2NR'];
 
+  // CardMirror keeps plugin storage in localStorage under `plugin:<id>`, with
+  // declared settings nested in that same object under `__settings`. The shim
+  // below reads and writes exactly those, so a cold session and a normal one
+  // share one store instead of drifting apart.
+  const STORE_KEY = 'plugin:' + PLUGIN_ID;
+  const SETTINGS_KEY = '__settings';
+
   let pluginApi = null;
+
+  function domToast(msg) {
+    let host = document.getElementById('tabroom-toast');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'tabroom-toast';
+      host.style.cssText =
+        'position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:99999;' +
+        'background:#232323;color:#fff;padding:8px 14px;border-radius:6px;font-size:13px;' +
+        'max-width:70vw;box-shadow:0 2px 10px rgba(0,0,0,.35);pointer-events:none;' +
+        'transition:opacity .25s';
+      document.body.appendChild(host);
+    }
+    host.textContent = String(msg);
+    host.style.opacity = '1';
+    clearTimeout(host._hide);
+    host._hide = setTimeout(() => {
+      host.style.opacity = '0';
+    }, 4000);
+  }
 
   function toast(msg) {
     try {
@@ -16,6 +43,62 @@
       }
     } catch (_) {}
     console.log('[Tabroom]', msg);
+    try {
+      domToast(msg);
+    } catch (_) {}
+  }
+
+  // CardMirror only hands a plugin its api object when a command actually
+  // runs — the registry keeps it in a private map, and there is no hook that
+  // delivers it at load time. The ribbon button has to work on a cold session,
+  // so stand in a shim built on the host bridge the preload already exposes on
+  // window: the real api's flowApps/flowPost are thin wrappers over these.
+  function fallbackApi() {
+    const host = window.electronAPI || null;
+    const read = () => {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+      } catch (_) {
+        return {};
+      }
+    };
+    return {
+      async flowApps() {
+        return host && host.flowApps ? await host.flowApps() : [];
+      },
+      async flowPost(appId, route, body) {
+        return host && host.flowPost
+          ? await host.flowPost(appId, route, body)
+          : { ok: false, error: 'unsupported' };
+      },
+      showToast: domToast,
+      storage: {
+        get(key) {
+          return read()[key];
+        },
+        set(key, value) {
+          const all = read();
+          all[key] = value;
+          try {
+            localStorage.setItem(STORE_KEY, JSON.stringify(all));
+          } catch (_) {}
+        }
+      },
+      settings: {
+        get(key) {
+          const bag = read()[SETTINGS_KEY];
+          if (!bag || typeof bag !== 'object' || Array.isArray(bag)) return undefined;
+          return bag[key];
+        }
+      }
+    };
+  }
+
+  // A real api from a command run always wins; the shim only fills the gap.
+  function ensureApi() {
+    if (!pluginApi) pluginApi = fallbackApi();
+    return pluginApi;
   }
 
   function roundLabel(round) {
@@ -425,6 +508,15 @@
     }
   }
 
+  function settingBool(key, fallback) {
+    try {
+      const v = pluginApi && pluginApi.settings ? pluginApi.settings.get(key) : undefined;
+      return typeof v === 'boolean' ? v : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
   function prune(rounds, windowHours) {
     const now = Date.now();
     const cutoff = windowHours > 0 ? now - windowHours * 3600 * 1000 : null;
@@ -648,11 +740,104 @@
     await createSpeechDoc(name);
   }
 
+  async function openRoundPicker() {
+    ensureApi();
+    const rounds = await fetchRounds(false, true, true);
+    if (!rounds) return;
+    const hours = settingNumber('recentWindowHours', 18);
+    showPicker(prune(rounds, hours), 'Current rounds', hours);
+  }
+
+  // --- Ribbon button -------------------------------------------------------
+  // There is no ribbon API for plugins, so the button is injected into the
+  // ribbon's own markup. It goes in a stack of its own rather than inside
+  // #speech-stack, because CardMirror hides that stack by id in single-doc
+  // mode (`body:not(.pmd-multi-doc):not(.pmd-multi-window) #speech-stack`)
+  // and picking a round is useful before a second pane exists.
+  const STACK_ID = 'tabroom-stack';
+  const BUTTON_ID = 'tabroom-round-btn';
+
+  async function onButtonClick() {
+    const btn = document.getElementById(BUTTON_ID);
+    if (btn) btn.disabled = true;
+    try {
+      await openRoundPicker();
+    } catch (e) {
+      console.error('[Tabroom Rounds] ribbon button failed', e);
+      toast('Tabroom: ' + ((e && e.message) || 'something went wrong'));
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function buildButton() {
+    const stack = document.createElement('div');
+    stack.id = STACK_ID;
+    stack.className = 'ribbon-button-stack ribbon-speech-stack';
+    stack.setAttribute('role', 'group');
+    stack.setAttribute('aria-label', 'Tabroom');
+
+    const btn = document.createElement('button');
+    btn.id = BUTTON_ID;
+    btn.type = 'button';
+    btn.title = 'New speech doc from a Tabroom round';
+    btn.setAttribute('aria-label', 'New speech doc from a Tabroom round');
+
+    const icon = document.createElement('span');
+    icon.className = 'pmd-icon pmd-icon-trophy';
+    icon.setAttribute('aria-hidden', 'true');
+
+    btn.appendChild(icon);
+    btn.addEventListener('click', onButtonClick);
+    stack.appendChild(btn);
+    return stack;
+  }
+
+  function mountButton() {
+    if (!document.body) return false;
+    if (!settingBool('showRibbonButton', true)) {
+      const existing = document.getElementById(STACK_ID);
+      if (existing) existing.remove();
+      return true;
+    }
+    if (document.getElementById(BUTTON_ID)) return true;
+    const anchor =
+      document.getElementById('speech-stack') ||
+      document.getElementById('quickcards-stack');
+    if (!anchor || !anchor.parentNode) return false;
+    anchor.parentNode.insertBefore(buildButton(), anchor.nextSibling);
+    return true;
+  }
+
+  function watchRibbon() {
+    // The plugin loads before the ribbon exists, and CardMirror rebuilds the
+    // ribbon on layout changes, so poll at boot and re-mount on remount.
+    let tries = 0;
+    const timer = setInterval(() => {
+      if (mountButton() || ++tries > 150) clearInterval(timer);
+    }, 200);
+
+    const observer = new MutationObserver(() => {
+      mountButton();
+    });
+    const start = () => observer.observe(document.body, { childList: true, subtree: true });
+    if (document.body) start();
+    else document.addEventListener('DOMContentLoaded', start, { once: true });
+  }
+
   const def = {
     id: PLUGIN_ID,
     name: 'Tabroom Rounds',
     apiVersion: 1,
     settings: [
+      {
+        key: 'showRibbonButton',
+        label: 'Show the Tabroom button in the ribbon',
+        type: 'boolean',
+        default: true,
+        description:
+          'Adds a trophy button next to the speech-doc buttons that opens the round picker directly.'
+      },
       {
         key: 'recentWindowHours',
         label: 'Hide rounds older than (hours)',
@@ -677,10 +862,7 @@
         defaultKey: '',
         run: async (api) => {
           pluginApi = api;
-          const rounds = await fetchRounds(false, true, true);
-          if (!rounds) return;
-          const hours = settingNumber('recentWindowHours', 18);
-          showPicker(prune(rounds, hours), 'Current rounds', hours);
+          await openRoundPicker();
         }
       },
       {
@@ -782,5 +964,11 @@
     window.__registerCardMirrorPlugin?.(def);
   } catch (e) {
     console.error('[Tabroom Rounds] registration failed', e);
+  }
+
+  try {
+    watchRibbon();
+  } catch (e) {
+    console.error('[Tabroom Rounds] ribbon button failed to mount', e);
   }
 })();

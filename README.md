@@ -99,7 +99,9 @@ Restart CardMirror. The folder name has to match the `id` in the manifest exactl
 
 ## Use
 
-Open the command palette (`Cmd/Ctrl+Shift+Space`) and run one of:
+The quickest way in is the trophy button in the ribbon, next to the speech-doc buttons. It opens the round picker directly, and it works from a cold start — no command has to be run first. Turn it off in **Settings → Plugins → Tabroom Rounds** if you would rather keep the ribbon clean.
+
+Everything is also on the command palette (`Cmd/Ctrl+Shift+Space`):
 
 - **Tabroom: New Speech Doc From Round** — live rounds
 - **Tabroom: Refresh Rounds** — skip the cache
@@ -112,7 +114,7 @@ Pick a round, pick a speech, and CardMirror creates the document. In three-pane 
 
 Speech buttons are filtered by side — aff rounds offer 1AC/2AC/1AR/2AR, neg rounds the negative speeches. Rounds with no side recorded offer all eight.
 
-Both commands ship unbound. Assign keys in **Settings → Keybindings**.
+All commands ship unbound. Assign keys in **Settings → Keybindings**.
 
 ## Flight
 

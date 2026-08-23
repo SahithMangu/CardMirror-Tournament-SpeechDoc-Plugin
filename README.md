@@ -26,6 +26,40 @@ The helper (`tabroom_bridge.py`) logs into openCaselist with your Tabroom creden
 
 A helper is needed because openCaselist authenticates with a `SameSite=Lax` cookie, and browsers refuse to send it cross-site — a plugin running inside CardMirror cannot set a `Cookie` header. A normal process can.
 
+### Why openCaselist and not one of the unofficial Tabroom APIs
+
+A few community projects wrap Tabroom, most visibly
+[neelr/tabroom-private-api](https://github.com/neelr/tabroom-private-api) and
+[gmitch215/TabroomAPI](https://github.com/gmitch215/TabroomAPI). They are useful
+work, but they solve a different problem and could not power this plugin.
+
+**They serve public tournament data, not your own schedule.** Their endpoints are
+keyed by tournament id — `getTournament(30082)`, `/tournament/pairings` — so what
+comes back is the public postings page for an event. This plugin needs *your*
+rounds: which side you are, who you are hitting, in the round you are about to
+walk into. To get that out of a public postings page you would have to know the
+tournament id and event, pull every pairing, and match your own entry by name —
+which breaks the moment a name is formatted differently.
+
+**Your own schedule requires being logged in**, and that is the actual hard part.
+`api.tabroom.com` is private and needs authentication; gmitch215's own README says
+as much. So an unofficial wrapper does not avoid the authentication problem, it
+just moves it.
+
+**Both are also effectively unmaintained.** neelr's last commit was February 2021
+and its hosted endpoint lives on `now.sh`, which Vercel retired. gmitch215's
+repository is archived by its author, and is Kotlin-only, so it could not be
+called from this helper or plugin without reimplementing it. Scrapers break
+silently when markup changes, which is a bad property for something you rely on
+between rounds.
+
+**openCaselist gets this right by being sanctioned.** Tabroom issued it a partner
+API key, so it can look up a specific person's rounds and hand back exactly the
+fields this plugin needs — tournament, round, side, opponent, judge, start time.
+It is maintained by the same person who maintains Verbatim. The only cost is the
+local helper, which exists purely because openCaselist authenticates with a
+cookie that a plugin inside CardMirror is not allowed to send.
+
 ## Your data stays on your computer
 
 **This plugin collects nothing. Not your login, not your rounds, not usage data — nothing is sent to the author or to any third party.** There is no analytics, no telemetry, no crash reporting, no "phone home". I have no server, and I cannot see that you are using this.

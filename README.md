@@ -4,6 +4,8 @@ A CardMirror plugin that creates speech documents named from your live Tabroom p
 
 Instead of typing `1AC Harvard Round 1 vs Ridge AM` by hand every round, pick the round from a list and the document is created and named for you. Same idea as Verbatim's speech-doc dropdown, built for CardMirror.
 
+> **Works on macOS, Windows, and Linux.** Only the one-click installer is macOS-only — on Windows and Linux you start the helper yourself with one command and everything else behaves the same. See [Platform support](#platform-support).
+
 ## How it works
 
 Tabroom has no public API for your own pairings. The path that works — and the one Verbatim uses — goes through openCaselist:
@@ -72,6 +74,8 @@ There are two pieces: a **plugin** inside CardMirror, and a small **helper** tha
 
 ### 1. The helper
 
+#### macOS
+
 Download **TabroomBridge.pkg** from the [latest release](../../releases/latest) and open it.
 
 macOS blocks unsigned installers the first time, so right-click the pkg and choose **Open**, then confirm. You only do this once.
@@ -105,6 +109,25 @@ Run with no flags to keep it in the foreground.
 To remove it later: `python3 /usr/local/lib/tabroom-bridge/tabroom_bridge.py --uninstall-agent`
 
 Logs: `~/.config/tabroom-bridge/logs/bridge.log`
+
+#### Windows and Linux
+
+There is no installer, but nothing else is different. Download `tabroom_bridge.py` from the [latest release](../../releases/latest) and run it:
+
+```bash
+python3 tabroom_bridge.py
+```
+
+Leave that window open. The helper registers itself where CardMirror looks for it (`%APPDATA%\cardmirror-bridge` on Windows, `$XDG_DATA_HOME/cardmirror-bridge` or `~/.local/share/cardmirror-bridge` on Linux), so the plugin finds it immediately — sign in from inside CardMirror exactly as the macOS instructions describe.
+
+Requires Python 3.9 or newer, and nothing else — no pip install, no virtualenv.
+
+Two differences from macOS worth knowing:
+
+- **It does not start on its own.** Run the command again each session, or set up autostart yourself: a **Task Scheduler** task set to "At log on" on Windows, or a **systemd user unit** (`~/.config/systemd/user/`) with `systemctl --user enable --now` on Linux.
+- **Your password is stored in a `0600` file** in the config directory rather than a Keychain, because there is no cross-platform equivalent. Everything else — loopback binding, token auth, rate limiting — is identical.
+
+`--login`, `--forget`, and `--uninstall-agent` all work; `--install-agent` is the only macOS-only flag.
 
 ### 2. The plugin
 

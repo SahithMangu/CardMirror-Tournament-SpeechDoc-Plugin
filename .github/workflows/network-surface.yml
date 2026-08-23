@@ -1,0 +1,18 @@
+name: network surface
+
+# The README and SECURITY.md both claim a specific, short list of hosts this
+# software talks to. This job makes that claim machine-checked instead of
+# something a reader has to take on trust.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  hosts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check no unapproved hostnames appear in the source
+        run: python3 scripts/check_hosts.py

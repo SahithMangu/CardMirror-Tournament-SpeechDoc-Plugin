@@ -143,6 +143,14 @@ That is the complete list. You can confirm it yourself:
 grep -oE "https?://[a-zA-Z0-9./_-]+" tabroom_bridge.py plugin.js | sort -u
 ```
 
+And you do not have to take my word that it stays true. The approved hosts live in
+[`.allowed-hosts`](.allowed-hosts), and a
+[GitHub Action](.github/workflows/network-surface.yml) fails the build on every
+push if a hostname appears in the source that is not on that list. Adding one
+takes a visible commit to that file. It is a static scan, so it catches drift and
+sloppiness rather than someone deliberately hiding a request — but it means this
+table cannot quietly go stale.
+
 Specifics worth knowing:
 
 - **Your password** is stored in the **macOS Keychain**, not in a file, and is used only to renew your openCaselist session when the two-week token expires. It is never written to disk in plain text and never leaves your machine except to log in to openCaselist.

@@ -1,0 +1,18 @@
+# Every hostname this project is allowed to contact, one per line.
+# Enforced by .github/workflows/network-surface.yml on every push and PR:
+# a hostname in tabroom_bridge.py or plugin.js that is not listed here fails
+# the build. Adding one requires an explicit, reviewable commit to this file.
+#
+# This backs the "these are the only network connections" claim in the README
+# and SECURITY.md, so that claim cannot quietly stop being true.
+
+# openCaselist — sign in, and fetch your own rounds. The only host that
+# receives credentials.
+api.opencaselist.com
+
+# GitHub — check for a newer helper version and download it if accepted.
+# api.github.com serves the release metadata; the release assets themselves
+# are served from these hosts.
+api.github.com
+github.com
+objects.githubusercontent.com

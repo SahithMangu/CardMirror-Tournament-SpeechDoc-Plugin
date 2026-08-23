@@ -26,6 +26,57 @@ The helper (`tabroom_bridge.py`) logs into openCaselist with your Tabroom creden
 
 A helper is needed because openCaselist authenticates with a `SameSite=Lax` cookie, and browsers refuse to send it cross-site — a plugin running inside CardMirror cannot set a `Cookie` header. A normal process can.
 
+### Exactly what is sent
+
+There are only two requests to openCaselist, and this is all of them, in full.
+
+**1. Signing in.** Sent once, and again only if the session expires:
+
+```http
+POST https://api.opencaselist.com/v1/login
+Content-Type: application/json
+
+{"username": "<your Tabroom login>", "password": "<your password>", "remember": true}
+```
+
+openCaselist verifies those against Tabroom and returns a session token. **The only
+things kept from the response are the token and your user id** — the token goes to
+`~/.config/tabroom-bridge/state.json` (mode `0600`) and your password goes to the
+macOS Keychain. The token is treated as good for 13 days, after which the helper
+signs in again on its own, which is the whole reason the password has to be stored
+at all.
+
+**2. Fetching your rounds.** Sent when you ask for rounds:
+
+```http
+GET https://api.opencaselist.com/v1/tabroom/rounds?current=true
+Cookie: caselist_token=<the token from step 1>
+```
+
+That header is the crux of the whole design. `Cookie` is a
+[forbidden header](https://developer.mozilla.org/en-US/docs/Glossary/Forbidden_header_name)
+— browsers refuse to let JavaScript set it — and openCaselist reads the token from
+nowhere else, not from `Authorization`. So this one line is why a separate process
+exists rather than the plugin calling openCaselist directly.
+
+There is no request body, no identifiers of ours attached, and no other header. The
+response comes back as a list of rounds with `tournament`, `round`, `side`,
+`opponent`, `judge`, `start_time` and `share`. Only the first five are used.
+
+**Two requests to GitHub**, unrelated to your account and carrying nothing about you:
+
+```http
+GET https://api.github.com/repos/SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin/releases/latest
+Accept: application/vnd.github+json
+User-Agent: tabroom-bridge
+```
+
+and, only if you accept an update, a second one to download the new
+`tabroom_bridge.py` with the same `User-Agent`.
+
+That is the complete set of outbound traffic. The [grep below](#your-data-stays-on-your-computer)
+proves there are no other hosts in the source.
+
 ### Why openCaselist and not one of the unofficial Tabroom APIs
 
 **There is no public Tabroom API.** None. `api.tabroom.com` exists, but it is the
@@ -285,7 +336,7 @@ A heavy tournament day is roughly 40 upstream calls.
 ## Security
 
 - The password lives in the macOS Keychain. On other platforms it falls back to a `0600` file under `~/.config/tabroom-bridge`
-- The session token is cached for two weeks and renewed automatically
+- The session token is cached for 13 days and renewed automatically
 - The loopback server binds `127.0.0.1` only and rejects any request without the per-launch bridge token
 - Handshake files are written `0600` inside a `0700` directory
 

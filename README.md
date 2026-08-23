@@ -43,6 +43,29 @@ Specifics worth knowing:
 
 To erase everything, including the saved login, see [Removing it](#removing-it).
 
+## Platform support
+
+**The installer is macOS-only. The plugin and the helper itself are not.**
+
+| | Plugin | Helper runs | One-click install + autostart |
+| --- | --- | --- | --- |
+| **macOS** | yes | yes | yes — `TabroomBridge.pkg` |
+| **Windows** | yes | yes, started manually | no |
+| **Linux** | yes | yes, started manually | no |
+| **CardMirror web edition** | no | — | — |
+
+What is macOS-only is the *packaging*: the `.pkg`, the LaunchAgent that starts the helper at login, and storing your password in the Keychain. `--install-agent` refuses to run anywhere else.
+
+Everything underneath is portable. The helper is plain Python with no dependencies, and it already resolves the shared bridge directory correctly on all three platforms — `%APPDATA%\cardmirror-bridge` on Windows, `$XDG_DATA_HOME/cardmirror-bridge` (or `~/.local/share/...`) on Linux — matching where CardMirror looks. So on Windows or Linux you can run:
+
+```bash
+python3 tabroom_bridge.py
+```
+
+and the plugin will find it and work normally. The catches are that you must start it yourself each session (or wire up your own Task Scheduler entry / systemd user unit), and that outside macOS your password is stored in a `0600` file in the config directory instead of the Keychain.
+
+The web edition is genuinely out of scope: it has no Electron host, so `flowApps`/`flowPost` do not exist and there is no way to reach a local process at all.
+
 ## Install
 
 There are two pieces: a **plugin** inside CardMirror, and a small **helper** that runs in the background. You need both. The helper exists because openCaselist authenticates with a cookie, and a plugin running inside CardMirror's browser engine is not allowed to send one.

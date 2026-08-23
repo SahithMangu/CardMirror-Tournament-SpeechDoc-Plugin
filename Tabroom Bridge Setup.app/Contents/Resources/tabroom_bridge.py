@@ -18,7 +18,7 @@ from pathlib import Path
 
 APP_ID = "tabroom-bridge"
 APP_NAME = "Tabroom Bridge"
-APP_VERSION = "1.2.2"
+APP_VERSION = "1.2.3"
 REPO = "SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin"
 UPDATE_CHECK_INTERVAL = 24 * 3600
 BRIDGE_SCHEMA = 1
@@ -642,6 +642,8 @@ def resolve_python() -> str:
 
 def remove_legacy_agents() -> None:
     """Stop and delete agents installed under a previous label."""
+    if sys.platform != "darwin":
+        return  # launchd/os.getuid() are macOS-only
     for label in LEGACY_AGENT_LABELS:
         path = Path.home() / "Library" / "LaunchAgents" / f"{label}.plist"
         uid = os.getuid()
@@ -699,16 +701,21 @@ def install_agent() -> None:
 
 
 def uninstall_agent() -> None:
-    remove_legacy_agents()
-    path = agent_plist_path()
-    subprocess.run(
-        ["launchctl", "bootout", f"gui/{os.getuid()}/{AGENT_LABEL}"], capture_output=True
-    )
-    subprocess.run(["launchctl", "unload", str(path)], capture_output=True)
-    try:
-        path.unlink()
-    except Exception:
-        pass
+    # Only macOS has a LaunchAgent to tear down; elsewhere there is just the
+    # copied script and the bridge registration to clear. Guarding matters:
+    # os.getuid() does not exist on Windows.
+    if sys.platform == "darwin":
+        remove_legacy_agents()
+        path = agent_plist_path()
+        subprocess.run(
+            ["launchctl", "bootout", f"gui/{os.getuid()}/{AGENT_LABEL}"],
+            capture_output=True,
+        )
+        subprocess.run(["launchctl", "unload", str(path)], capture_output=True)
+        try:
+            path.unlink()
+        except Exception:
+            pass
     try:
         (support_dir() / "tabroom_bridge.py").unlink()
     except Exception:

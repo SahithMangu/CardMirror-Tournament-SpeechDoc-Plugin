@@ -56,15 +56,13 @@ To erase everything, including the saved login, see [Removing it](#removing-it).
 | **Linux** | yes | yes, started manually | no |
 | **CardMirror web edition** | no | — | — |
 
-What is macOS-only is the *packaging*: the `.pkg`, the LaunchAgent that starts the helper at login, and storing your password in the Keychain. `--install-agent` refuses to run anywhere else.
+What is macOS-only is the *packaging*: the `.pkg`, the LaunchAgent that starts the helper at login, and storing your password in the Keychain.
 
-Everything underneath is portable. The helper is plain Python with no dependencies, and it already resolves the shared bridge directory correctly on all three platforms — `%APPDATA%\cardmirror-bridge` on Windows, `$XDG_DATA_HOME/cardmirror-bridge` (or `~/.local/share/...`) on Linux — matching where CardMirror looks. So on Windows or Linux you can run:
+**On why there is no Windows `.exe`:** I do not currently have a Windows machine, so I cannot build and *test* an installer, and I would rather ship no installer than an untested one. Windows support is otherwise real — the helper runs there fine, you just launch it yourself. A proper installer is planned if I get access to a Windows machine.
 
-```bash
-python3 tabroom_bridge.py
-```
+Everything underneath is portable. The helper is plain Python and already resolves the shared bridge directory correctly on all three platforms — `%APPDATA%\cardmirror-bridge` on Windows, `$XDG_DATA_HOME/cardmirror-bridge` (or `~/.local/share/...`) on Linux — matching where CardMirror looks. Step-by-step instructions are in [Windows and Linux](#windows-and-linux) below, written for people who have never opened a terminal.
 
-and the plugin will find it and work normally. The catches are that you must start it yourself each session (or wire up your own Task Scheduler entry / systemd user unit), and that outside macOS your password is stored in a `0600` file in the config directory instead of the Keychain.
+**Requirement:** Python 3.9 or newer, which you may already have. Nothing else — the helper uses only Python's standard library, so there is never a `pip install` step. macOS ships with a suitable Python already; on Windows you install it once from [python.org](https://www.python.org/downloads/).
 
 The web edition is genuinely out of scope: it has no Electron host, so `flowApps`/`flowPost` do not exist and there is no way to reach a local process at all.
 
@@ -81,6 +79,8 @@ Download **TabroomBridge.pkg** from the [latest release](../../releases/latest) 
 macOS blocks unsigned installers the first time, so right-click the pkg and choose **Open**, then confirm. You only do this once.
 
 It installs a small background service that starts at login. No terminal, and no credentials up front — you sign in from inside CardMirror.
+
+macOS already includes a Python new enough to run this, so there is normally nothing else to install. On a brand-new Mac that has never had developer tools, the installer may tell you Python is missing — if so, run `xcode-select --install` in Terminal, accept the Apple prompt, then open the pkg again.
 
 The service uses no measurable CPU when idle, and settles at roughly 15 MB of memory (a little higher for the first minute or two after it starts). It only contacts openCaselist when you ask it for rounds.
 
@@ -112,22 +112,69 @@ Logs: `~/.config/tabroom-bridge/logs/bridge.log`
 
 #### Windows and Linux
 
-There is no installer, but nothing else is different. Download `tabroom_bridge.py` from the [latest release](../../releases/latest) and run it:
+> **There is no Windows installer, and I am sorry about that.** I do not own a Windows machine, so I have no way to build and actually *test* a `.exe` or `.msi` — and shipping an installer I have never run is a good way to break someone's computer the night before a tournament. The manual steps below do exactly what the Mac installer does. If I get access to a Windows machine, a proper installer is the first thing I will add.
 
-```bash
-python3 tabroom_bridge.py
+Nothing about the plugin is worse on Windows or Linux. The only difference is that you start the helper yourself instead of an installer doing it for you.
+
+**You will need Python.** That is the only requirement — this tool uses nothing but Python's built-in library, so there is no `pip install` step and nothing else to download.
+
+<br>
+
+**Step 1 — Install Python (if you do not have it)**
+
+Windows: download it from **[python.org/downloads](https://www.python.org/downloads/)** and run the installer.
+
+> ⚠️ On the very first screen of the Python installer, tick the box that says **"Add python.exe to PATH"** before clicking Install. It is easy to miss, and if you skip it the commands below will not work. If you already installed Python without it, just run the installer again and choose Modify.
+
+Linux: you almost certainly already have it. If not, `sudo apt install python3` on Ubuntu/Debian, or `sudo dnf install python3` on Fedora.
+
+**Step 2 — Open a terminal**
+
+- **Windows:** press the Start button, type `cmd`, and press Enter. A black window opens. That is Command Prompt.
+- **Linux:** press `Ctrl` + `Alt` + `T`, or search for "Terminal" in your applications.
+
+**Step 3 — Check Python is working**
+
+Type this and press Enter:
+
+```
+py --version
 ```
 
-Leave that window open. The helper registers itself where CardMirror looks for it (`%APPDATA%\cardmirror-bridge` on Windows, `$XDG_DATA_HOME/cardmirror-bridge` or `~/.local/share/cardmirror-bridge` on Linux), so the plugin finds it immediately — sign in from inside CardMirror exactly as the macOS instructions describe.
+On Linux, and on Windows if `py` is not recognised, use `python3 --version` instead. You should see something like `Python 3.12.1`. Anything **3.9 or higher** is fine. If you instead get "not recognised as an internal or external command", Python is not on your PATH — redo Step 1 and make sure that checkbox is ticked.
 
-Requires Python 3.9 or newer, and nothing else — no pip install, no virtualenv.
+**Step 4 — Download the helper**
 
-Two differences from macOS worth knowing:
+Get **`tabroom_bridge.py`** from the [latest release](../../releases/latest). It will land in your Downloads folder. It is a single text file — you can open it in Notepad and read the whole thing if you want to.
 
-- **It does not start on its own.** Run the command again each session, or set up autostart yourself: a **Task Scheduler** task set to "At log on" on Windows, or a **systemd user unit** (`~/.config/systemd/user/`) with `systemctl --user enable --now` on Linux.
-- **Your password is stored in a `0600` file** in the config directory rather than a Keychain, because there is no cross-platform equivalent. Everything else — loopback binding, token auth, rate limiting — is identical.
+**Step 5 — Point the terminal at that folder**
 
-`--login`, `--forget`, and `--uninstall-agent` all work; `--install-agent` is the only macOS-only flag.
+The terminal is always "in" one folder at a time, and it can only run a file that is in the folder it is currently in. `cd` means "change directory". Type:
+
+```
+cd %USERPROFILE%\Downloads
+```
+
+On Linux that is `cd ~/Downloads`. If you saved the file somewhere else, put that folder's path there instead.
+
+**Step 6 — Start the helper**
+
+```
+py tabroom_bridge.py
+```
+
+On Linux, `python3 tabroom_bridge.py`.
+
+You should see a line saying it is listening. **Leave this window open.** You can minimise it, but if you close it the helper stops and CardMirror will say it cannot find it. Now open CardMirror and sign in exactly as the Mac instructions describe — the plugin will find the helper on its own.
+
+<br>
+
+**Two things that differ from the Mac version**
+
+- **It does not start automatically.** Repeat Step 6 each time you restart your computer. If you would rather it start on its own, set up a **Task Scheduler** task set to "At log on" (Windows) or a **systemd user unit** in `~/.config/systemd/user/` enabled with `systemctl --user enable --now` (Linux).
+- **Your password is stored in a permission-locked file** in your config folder rather than in the macOS Keychain, because Windows and Linux have no single equivalent. Everything else is identical — the helper still only listens on your own machine, still requires a token, and still rate-limits itself.
+
+`--login`, `--forget`, and `--uninstall-agent` all work here. `--install-agent` is the only macOS-only flag.
 
 ### 2. The plugin
 

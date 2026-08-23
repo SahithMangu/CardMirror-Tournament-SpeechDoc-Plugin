@@ -55,7 +55,7 @@ macOS blocks unsigned installers the first time, so right-click the pkg and choo
 
 It installs a small background service that starts at login. No terminal, and no credentials up front — you sign in from inside CardMirror.
 
-The service idles at about 11 MB of memory and no measurable CPU. It only contacts openCaselist when you ask it for rounds.
+The service uses no measurable CPU when idle, and settles at roughly 15 MB of memory (a little higher for the first minute or two after it starts). It only contacts openCaselist when you ask it for rounds.
 
 <details>
 <summary>Other install methods</summary>
@@ -177,7 +177,7 @@ The helper updates itself. When the plugin needs a newer one it offers to update
 
 ## Pausing the helper
 
-The helper is idle almost all the time. It sits blocked on a loopback socket and does no polling, no timers, and no background work — it wakes only when CardMirror asks it for rounds. On a typical Mac it uses around **11 MB of memory and 0.0% CPU**. Check yours:
+The helper is idle almost all the time. It sits blocked on a loopback socket and does no polling, no timers, and no background work — it wakes only when CardMirror asks it for rounds. Measured on an Apple Silicon Mac: **0.0% CPU**, and memory that starts near 30 MB at launch and settles to roughly **12–15 MB** within a few minutes. Check yours:
 
 ```bash
 ps -o pid,rss,%cpu,etime,command -p $(pgrep -f tabroom_bridge)

@@ -438,6 +438,23 @@ class Updater:
             return {"ok": False, "error": f"downloaded file failed to parse: {e}"}
 
         target = Path(__file__).resolve()
+        # Installers before 1.2.1 pointed the LaunchAgent at the root-owned
+        # copy in /usr/local/lib, which the agent (running as the user) cannot
+        # rewrite. Say so plainly instead of surfacing a bare EACCES.
+        if not os.access(target, os.W_OK) or not os.access(target.parent, os.W_OK):
+            return {
+                "ok": False,
+                "error": "read-only-install",
+                "detail": (
+                    f"This helper runs from {target}, which it does not have "
+                    "permission to modify, so it cannot update itself. "
+                    "Reinstall TabroomBridge.pkg from the latest release once; "
+                    "after that, updates apply automatically."
+                ),
+                "version": APP_VERSION,
+                "latestVersion": info["version"],
+            }
+
         staged = target.with_suffix(".py.new")
         try:
             staged.write_text(source)

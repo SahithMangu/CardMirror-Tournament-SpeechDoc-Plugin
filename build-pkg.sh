@@ -36,6 +36,12 @@ LABEL="com.tabroombridge.helper"
 LEGACY_LABEL="com.sahith.tabroom-bridge"
 PLIST="$USER_HOME/Library/LaunchAgents/$LABEL.plist"
 LOGS="$USER_HOME/.config/tabroom-bridge/logs"
+# The agent runs as the user, so it must point at a copy the user can WRITE:
+# the in-place self-updater rewrites its own file. $INSTALL_DIR is root-owned,
+# which made "Update Helper" fail with EACCES. Keep $INSTALL_DIR as the
+# pristine payload and run from the user's own copy, matching --install-agent.
+RUN_DIR="$USER_HOME/Library/Application Support/tabroom-bridge"
+RUN_SCRIPT="$RUN_DIR/tabroom_bridge.py"
 
 PY=""
 for candidate in /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do
@@ -50,7 +56,9 @@ if [ -z "$PY" ]; then
   exit 1
 fi
 
-/bin/mkdir -p "$USER_HOME/Library/LaunchAgents" "$LOGS"
+/bin/mkdir -p "$USER_HOME/Library/LaunchAgents" "$LOGS" "$RUN_DIR"
+/bin/cp "$INSTALL_DIR/tabroom_bridge.py" "$RUN_SCRIPT"
+/bin/chmod 700 "$RUN_SCRIPT"
 
 /bin/cat > "$PLIST" <<PLISTEOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -62,7 +70,7 @@ fi
   <key>ProgramArguments</key>
   <array>
     <string>$PY</string>
-    <string>$INSTALL_DIR/tabroom_bridge.py</string>
+    <string>$RUN_SCRIPT</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -78,7 +86,7 @@ fi
 </plist>
 PLISTEOF
 
-/usr/sbin/chown -R "$CONSOLE_USER" "$PLIST" "$USER_HOME/.config/tabroom-bridge"
+/usr/sbin/chown -R "$CONSOLE_USER" "$PLIST" "$USER_HOME/.config/tabroom-bridge" "$RUN_DIR"
 
 # Older versions installed under a different label; remove that agent first
 # so launchd is not left running two helpers against the same bridge files.

@@ -470,6 +470,51 @@
     });
   }
 
+  function showUpdateBlocked(body) {
+    closeOverlay();
+    const overlay = document.createElement('div');
+    overlay.id = 'tabroom-rounds-overlay';
+    overlay.style.cssText =
+      'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.32);display:flex;align-items:center;justify-content:center';
+    const dialog = document.createElement('div');
+    dialog.style.cssText =
+      'background:var(--pmd-c-surface,#fff);color:inherit;border-radius:10px;padding:20px 22px;max-width:460px;' +
+      'box-shadow:0 12px 40px rgba(0,0,0,.35);font-size:14px;line-height:1.5';
+    const h = document.createElement('div');
+    h.textContent = 'Helper cannot update itself';
+    h.style.cssText = 'font-weight:600;margin-bottom:10px;font-size:15px';
+    dialog.appendChild(h);
+    const p = document.createElement('div');
+    p.textContent =
+      body.detail ||
+      'This helper was installed to a location it cannot modify. Reinstall the pkg once to fix it.';
+    dialog.appendChild(p);
+    const ver = document.createElement('div');
+    ver.style.cssText = 'margin-top:10px;opacity:.7;font-size:12.5px';
+    ver.textContent =
+      'Installed ' + (body.version || '?') + ' → available ' + (body.latestVersion || '?');
+    dialog.appendChild(ver);
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:18px';
+    const close = document.createElement('button');
+    close.textContent = 'Close';
+    close.style.cssText = 'padding:6px 14px;border-radius:6px;cursor:pointer';
+    close.addEventListener('click', closeOverlay);
+    const open = document.createElement('button');
+    open.textContent = 'Download the installer';
+    open.style.cssText =
+      'padding:6px 14px;border-radius:6px;border:0;background:#2e8b57;color:#fff;cursor:pointer';
+    open.addEventListener('click', () => {
+      window.open(RELEASES_URL, '_blank');
+      closeOverlay();
+    });
+    actions.appendChild(close);
+    actions.appendChild(open);
+    dialog.appendChild(actions);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+  }
+
   async function runSelfUpdate() {
     toast('Updating the helper\u2026');
     const res = await pluginApi.flowPost(BRIDGE_APP, '/self-update', {});
@@ -479,6 +524,13 @@
     }
     const body = res.body || {};
     if (!body.ok) {
+      // A helper installed by a pre-1.2.1 pkg runs from a root-owned path and
+      // can never rewrite itself. Point at the one-time fix instead of a
+      // permissions error the user can do nothing with.
+      if (body.error === 'read-only-install') {
+        showUpdateBlocked(body);
+        return false;
+      }
       toast('Update failed: ' + body.error);
       return false;
     }

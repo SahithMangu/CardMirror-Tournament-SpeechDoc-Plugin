@@ -95,6 +95,26 @@ The cached copy lives in the helper's memory, so it is there as long as the help
 
 One practical note for tournaments: sign in and pull your rounds once while you still have a decent connection. After that a flaky venue network degrades to stale-but-usable rather than nothing.
 
+## How quickly do new pairings show up
+
+Fast. The path to Tabroom is live — openCaselist does not cache anything, it forwards each request straight through — so a real round trip measures **about 0.1 to 0.3 seconds**.
+
+The only waiting comes from limits this plugin puts on itself, to stay well clear of openCaselist's rate limits:
+
+| | Delay |
+| --- | --- |
+| Actual round trip to Tabroom | ~0.1–0.3s |
+| Reuse of a recent answer | up to **45s** |
+| Minimum gap between live calls | 10s |
+
+In practice, if you have not checked in the last 45 seconds, pressing the trophy button fetches live and shows your pairing in well under a second. Press it repeatedly and you may get an answer up to 45 seconds old — which is generally fine, since pairings do not change second to second. **Tabroom: Refresh Rounds** skips that 45-second reuse and asks Tabroom again — subject only to the 10-second floor, which nothing bypasses.
+
+So the realistic worst case between a pairing going up and you seeing it is **under a minute** with the button, or about **10 seconds** if you use Refresh. Usually it is instant. See [Rate limiting](#rate-limiting) for why those limits exist.
+
+**What this cannot do is beat Tabroom itself.** Tab staff pair a round and then release it, and there is often a gap between the two. The plugin only ever sees what Tabroom has published, so it cannot show you a pairing before it is out — no tool can.
+
+One related gotcha: the button asks for *current* rounds, and Tabroom decides what counts as current. A pairing that is published but not starting for a while may not be in that list yet. If you know a pairing is up and the button shows nothing, try **Tabroom: All Rounds This Season**, which does not apply that filter.
+
 ## Install
 
 There are two pieces: a **plugin** inside CardMirror, and a small **helper** that runs in the background. You need both. The helper exists because openCaselist authenticates with a cookie, and a plugin running inside CardMirror's browser engine is not allowed to send one.

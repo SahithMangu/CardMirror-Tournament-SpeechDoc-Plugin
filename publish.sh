@@ -16,6 +16,7 @@ command -v git >/dev/null || fail "git is not installed."
 command -v gh >/dev/null || fail "GitHub CLI is not installed. Run: brew install gh"
 gh auth status >/dev/null 2>&1 || fail "Not signed in to GitHub. Run: gh auth login"
 
+[ -f RELEASE_NOTES.md ] || fail "RELEASE_NOTES.md is missing; release notes come from it."
 VERSION=$(python3 -c "import json;print(json.load(open('cardmirror-plugin.json'))['version'])")
 [ -n "$VERSION" ] || fail "Could not read version from cardmirror-plugin.json"
 TAG="v$VERSION"
@@ -117,10 +118,11 @@ step "Publishing release $TAG"
 if gh release view "$TAG" >/dev/null 2>&1; then
   echo "release $TAG already exists, replacing its assets"
   gh release upload "$TAG" cardmirror-plugin.json plugin.js tabroom_bridge.py "$ZIP" ${PKG:+"$PKG"} --clobber
+  gh release edit "$TAG" --title "Tabroom Rounds $VERSION" --notes-file RELEASE_NOTES.md
 else
   gh release create "$TAG" cardmirror-plugin.json plugin.js tabroom_bridge.py "$ZIP" ${PKG:+"$PKG"} \
-    --title "$TAG" \
-    --notes "Speech documents named from your live Tabroom pairings."
+    --title "Tabroom Rounds $VERSION" \
+    --notes-file RELEASE_NOTES.md
 fi
 
 step "Verifying"

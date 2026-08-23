@@ -6,6 +6,14 @@ Instead of typing `1AC Harvard Round 1 vs Ridge AM` by hand every round, pick th
 
 > **macOS only.** See [Platform support](#platform-support).
 
+> ### Unofficial project
+>
+> This is a hobby project. It is **not affiliated with, endorsed by, sponsored by, or supported by** CardMirror, Tabroom, the National Speech & Debate Association, openCaselist, Verbatim, or anyone else whose work it builds on. Nobody involved with those projects reviewed, approved, or is responsible for this.
+>
+> I wrote it for myself because I got tired of typing document names between rounds, and shared it in case it is useful. It comes with no warranty and no guarantee of support. If it breaks, that is on me — please open an issue here rather than contacting any of the projects listed above.
+>
+> All product names and trademarks belong to their respective owners.
+
 ## How it works
 
 Tabroom has no public API for your own pairings. The path that works — and the one Verbatim uses — goes through openCaselist:

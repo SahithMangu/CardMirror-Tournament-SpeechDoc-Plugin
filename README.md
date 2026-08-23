@@ -28,9 +28,23 @@ A helper is needed because openCaselist authenticates with a `SameSite=Lax` cook
 
 ### Why openCaselist and not one of the unofficial Tabroom APIs
 
-A few community projects wrap Tabroom, most visibly
+**There is no public Tabroom API.** None. `api.tabroom.com` exists, but it is the
+private API the Tabroom website uses for itself, and it requires credentials that
+are not handed out. There is no developer portal, no signup, no key you can apply
+for. Access is granted case by case, and Tabroom's technical side is essentially
+one person, so onboarding outside integrations has not been a priority. A better
+public API is talked about for after their rewrite, with no timeline.
+
+**openCaselist is, in practice, the only way in.** It holds a real Tabroom partner
+key and Tabroom built an endpoint specifically for it, which is why it can look up
+a given person's rounds at all. For a third-party debate tool that needs your own
+schedule, going through openCaselist is not one option among several — it is
+essentially the only route that exists. That is also the route Verbatim takes.
+
+Which brings up the obvious question: what about the community projects that wrap
+Tabroom, most visibly
 [neelr/tabroom-private-api](https://github.com/neelr/tabroom-private-api) and
-[gmitch215/TabroomAPI](https://github.com/gmitch215/TabroomAPI). They are useful
+[gmitch215/TabroomAPI](https://github.com/gmitch215/TabroomAPI)? They are useful
 work, but they solve a different problem and could not power this plugin.
 
 **They serve public tournament data, not your own schedule.** Their endpoints are

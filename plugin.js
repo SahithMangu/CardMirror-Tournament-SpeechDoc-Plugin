@@ -404,7 +404,10 @@
     document.body.appendChild(overlay);
   }
 
-  const MIN_HELPER_VERSION = '1.0.0';
+  // 1.2.1 is the first helper that can actually update itself (earlier pkg
+  // installs ran from a root-owned path) and the first that reports a
+  // structured read-only-install error. Below that, prompt to reinstall.
+  const MIN_HELPER_VERSION = '1.2.1';
 
   function versionBelow(actual, required) {
     const parse = (v) =>

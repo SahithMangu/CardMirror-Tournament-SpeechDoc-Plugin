@@ -58,7 +58,9 @@ To erase everything, including the saved login, see [Removing it](#removing-it).
 
 I only have a Mac. I will not tell people to run something on a system I have never been able to test on — the instructions could be subtly wrong, and the person finding out would be someone mid-tournament. So rather than ship half-supported guesswork, Windows and Linux are simply out of scope for now.
 
-If that changes and I can properly test on those systems, support may be added later. Until then, please do not run the helper on Windows or Linux and expect it to behave.
+If that changes and I can properly test on those systems, support may be added later.
+
+This is enforced, not just documented: the helper refuses to start on anything other than macOS. The only commands that still work elsewhere are `--forget` and `--uninstall-agent`, so that anyone who ran an older version on another system can still delete their saved login.
 
 The web edition of CardMirror is out of scope for a different and permanent reason: it has no Electron host, so the `flowApps`/`flowPost` bridge does not exist and there is no way for a plugin to reach a local process at all.
 

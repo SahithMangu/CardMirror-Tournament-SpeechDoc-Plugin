@@ -18,7 +18,7 @@ from pathlib import Path
 
 APP_ID = "tabroom-bridge"
 APP_NAME = "Tabroom Bridge"
-APP_VERSION = "1.2.3"
+APP_VERSION = "1.2.4"
 REPO = "SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin"
 UPDATE_CHECK_INTERVAL = 24 * 3600
 BRIDGE_SCHEMA = 1
@@ -760,11 +760,35 @@ def serve() -> None:
         clear_session()
 
 
+def require_macos() -> None:
+    """Refuse to run anywhere the author can actually test.
+
+    The code has Windows and Linux branches and would probably work, but
+    "probably" is not good enough for something people rely on mid-round, and
+    there is no Windows or Linux machine here to verify it on. Documenting
+    macOS-only is not enough on its own -- someone who finds this file would
+    still run it -- so the refusal is enforced here too.
+
+    Deliberately NOT gated: --forget and --uninstall-agent. Anyone who already
+    ran this elsewhere must still be able to delete their stored password.
+    """
+    if sys.platform != "darwin":
+        print(
+            "Tabroom Bridge is macOS only.\n"
+            "\n"
+            "Windows and Linux are not supported: they cannot be tested here, and\n"
+            "shipping setup steps that have never been run is worse than shipping\n"
+            "none. Support may be added later.\n"
+            "\n"
+            "You can still run --forget or --uninstall-agent to clean up.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 def main() -> None:
     args = sys.argv[1:]
-    if "--install-agent" in args:
-        install_agent()
-        return
+    # Cleanup paths stay open on every platform, on purpose.
     if "--uninstall-agent" in args:
         uninstall_agent()
         return
@@ -772,6 +796,12 @@ def main() -> None:
         caselist.drop_session()
         credentials.forget()
         print("Credentials and token cleared.")
+        return
+
+    require_macos()
+
+    if "--install-agent" in args:
+        install_agent()
         return
     if "--login" in args:
         prompt_login()

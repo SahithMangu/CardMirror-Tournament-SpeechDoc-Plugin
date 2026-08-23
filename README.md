@@ -1,6 +1,15 @@
 # Tabroom Rounds
 
+[![release](https://img.shields.io/github/v/release/SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin?style=flat&label=release&color=2e8b57)](https://github.com/SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin/releases/latest)
 [![network surface](https://github.com/SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin/actions/workflows/network-surface.yml/badge.svg)](https://github.com/SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin/actions/workflows/network-surface.yml)
+[![license](https://img.shields.io/github/license/SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin?style=flat&color=green)](LICENSE)
+
+![platform](https://img.shields.io/badge/platform-macOS-lightgrey?style=flat&logo=apple&logoColor=white)
+![CardMirror](https://img.shields.io/badge/CardMirror-1.3.0%2B-7c5cff?style=flat)
+![python](https://img.shields.io/badge/python-3.9%2B-3776AB?style=flat&logo=python&logoColor=white)
+![dependencies](https://img.shields.io/badge/dependencies-none-brightgreen?style=flat)
+![telemetry](https://img.shields.io/badge/telemetry-none-brightgreen?style=flat)
+![unofficial](https://img.shields.io/badge/status-unofficial-orange?style=flat)
 
 A CardMirror plugin that creates speech documents named from your live Tabroom pairings.
 

@@ -64,6 +64,29 @@ This is enforced, not just documented: the helper refuses to start on anything o
 
 The web edition of CardMirror is out of scope for a different and permanent reason: it has no Electron host, so the `flowApps`/`flowPost` bridge does not exist and there is no way for a plugin to reach a local process at all.
 
+## You need an internet connection
+
+Fetching your pairings is a live request to openCaselist, so **this needs internet at the moment you ask for rounds.** There is no fully offline mode.
+
+| | Internet needed? |
+| --- | --- |
+| CardMirror and the ribbon button | No |
+| The helper starting up | No |
+| Signing in (once) | **Yes** |
+| Fetching your rounds | **Yes** |
+| Creating and naming the document | No |
+
+Your login lasts about two weeks and is stored locally, so you are not signing in every round — but the round list itself is fetched fresh each time.
+
+**If the connection drops, nothing breaks.** CardMirror keeps working and the plugin fails softly:
+
+- If rounds were fetched earlier in the session, you get **those**, labelled `Offline — showing the rounds from your last refresh (12 min ago)`. Still enough to name a document for the round you are about to debate.
+- If there is nothing cached yet, you get `Cannot reach openCaselist — check your internet connection.` and nothing else happens.
+
+The cached copy lives in the helper's memory, so it is there as long as the helper keeps running, and is lost if your Mac restarts. Nothing about your rounds is written to disk.
+
+One practical note for tournaments: sign in and pull your rounds once while you still have a decent connection. After that a flaky venue network degrades to stale-but-usable rather than nothing.
+
 ## Install
 
 There are two pieces: a **plugin** inside CardMirror, and a small **helper** that runs in the background. You need both. The helper exists because openCaselist authenticates with a cookie, and a plugin running inside CardMirror's browser engine is not allowed to send one.

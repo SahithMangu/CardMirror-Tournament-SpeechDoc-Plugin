@@ -18,7 +18,7 @@ from pathlib import Path
 
 APP_ID = "tabroom-bridge"
 APP_NAME = "Tabroom Bridge"
-APP_VERSION = "1.2.4"
+APP_VERSION = "1.2.5"
 REPO = "SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin"
 UPDATE_CHECK_INTERVAL = 24 * 3600
 BRIDGE_SCHEMA = 1
@@ -356,7 +356,22 @@ class Caselist:
                     return {"ok": False, "error": "rate-limited", "retryAfter": int(retry)}
                 return {"ok": False, "error": f"http-{e.code}"}
             except Exception as e:
-                return {"ok": False, "error": str(e)}
+                # Network is down, or openCaselist is unreachable. Rounds we
+                # already pulled are still the right answer for a round about
+                # to happen, so hand those back rather than nothing -- flagged
+                # stale so the UI can say so. This is the tournament-wifi case.
+                if self.rounds_cache is not None and self.rounds_cache[0] == key:
+                    log(f"upstream unreachable ({e}); serving cached rounds")
+                    return {
+                        "ok": True,
+                        "rounds": self.rounds_cache[1],
+                        "cached": True,
+                        "stale": True,
+                        "offline": True,
+                        "age": int(now - self.rounds_at),
+                    }
+                log(f"upstream unreachable ({e}); no cached rounds to fall back on")
+                return {"ok": False, "error": "offline", "detail": str(e)}
 
             if not isinstance(rounds, list):
                 rounds = []

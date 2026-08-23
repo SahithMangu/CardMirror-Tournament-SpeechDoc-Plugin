@@ -613,6 +613,15 @@
     return cutoff === null ? ordered.concat(undated) : ordered;
   }
 
+  function describeAgo(seconds) {
+    const s = Number(seconds) || 0;
+    if (s < 90) return 'just now';
+    const mins = Math.round(s / 60);
+    if (mins < 60) return mins + ' min ago';
+    const hours = Math.round(mins / 60);
+    return hours + 'h ago';
+  }
+
   function describeAge(round) {
     const when = roundTime(round);
     if (!when) return '';
@@ -640,11 +649,22 @@
       force: !!force
     });
     if (!res.ok) {
-      toast('Bridge error: ' + res.error);
+      // CardMirror gives the helper 3s; a stalled network blows through that
+      // long before the helper's own timeout fires. "timeout" here almost
+      // always means the connection, not a broken helper.
+      if (res.error === 'timeout') {
+        toast('Cannot reach openCaselist — check your internet connection.');
+      } else {
+        toast('Bridge error: ' + res.error);
+      }
       return null;
     }
     const body = res.body || {};
     if (!body.ok) {
+      if (body.error === 'offline') {
+        toast('Cannot reach openCaselist — check your internet connection.');
+        return null;
+      }
       if (body.error === 'not-logged-in') {
         if (allowLogin === false) {
           toast('Not signed in.');
@@ -661,7 +681,15 @@
       return null;
     }
     if (body.stale) {
-      toast('Showing cached rounds; refresh available in ' + body.retryAfter + 's.');
+      if (body.offline) {
+        toast(
+          'Offline — showing the rounds from your last refresh' +
+            (body.age ? ' (' + describeAgo(body.age) + ')' : '') +
+            '.'
+        );
+      } else {
+        toast('Showing cached rounds; refresh available in ' + body.retryAfter + 's.');
+      }
     }
     return body.rounds || [];
   }

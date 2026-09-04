@@ -6,6 +6,15 @@ macOS only. Needs CardMirror 1.3.0+, a Tabroom account, and the Python already o
 
 **This one needs internet** — your pairings are fetched live from openCaselist each time. See below.
 
+## Fixed in 1.2.6
+
+openCaselist renamed the round start field from `start_time` to `start`, which
+made the round picker report **"No rounds in the last N hours"** even when a round
+was an hour away — the plugin could no longer read the time, and rounds it could
+not date were being dropped. It now reads either field name, and a round it cannot
+date is shown rather than hidden, so a future rename degrades to an unsorted extra
+row instead of an empty list.
+
 ## Installing
 
 Two pieces — the [README](https://github.com/SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin#install) has the long version.

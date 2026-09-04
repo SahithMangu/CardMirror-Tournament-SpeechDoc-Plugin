@@ -561,7 +561,11 @@
   }
 
   function roundTime(round) {
-    const raw = round && round.start_time;
+    // openCaselist renamed this field from `start_time` to `start` (ISO 8601,
+    // e.g. 2026-09-04T20:30:00.000Z). Accept both: an older CardMirror or a
+    // cached response may still carry the old name, and a rename should never
+    // be able to empty the round picker again.
+    const raw = round && (round.start != null ? round.start : round.start_time);
     if (!raw) return null;
     let value = String(raw).trim();
     if (/^\d+$/.test(value)) {
@@ -610,7 +614,11 @@
     }
     dated.sort((a, b) => a.at - b.at);
     const ordered = dated.map((d) => d.round);
-    return cutoff === null ? ordered.concat(undated) : ordered;
+    // Keep rounds we could not date even when a window is set. Dropping them
+    // is why an upstream field rename showed "no rounds" instead of simply
+    // showing them unsorted: a schema change should degrade to a few extra
+    // rows, never to an empty picker.
+    return ordered.concat(undated);
   }
 
   function describeAgo(seconds) {

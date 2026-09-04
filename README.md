@@ -72,7 +72,9 @@ exists rather than the plugin calling openCaselist directly.
 
 There is no request body, no identifiers of ours attached, and no other header. The
 response comes back as a list of rounds with `tournament`, `round`, `side`,
-`opponent`, `judge`, `start_time` and `share`. Only the first five are used.
+`opponent`, `judge`, `start` and `share`. Only the first five are used.
+(openCaselist renamed `start_time` to `start` in September 2026; the plugin reads
+either.)
 
 **Two requests to GitHub**, unrelated to your account and carrying nothing about you:
 

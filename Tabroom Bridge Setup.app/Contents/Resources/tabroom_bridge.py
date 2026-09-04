@@ -18,7 +18,7 @@ from pathlib import Path
 
 APP_ID = "tabroom-bridge"
 APP_NAME = "Tabroom Bridge"
-APP_VERSION = "1.2.5"
+APP_VERSION = "1.2.6"
 REPO = "SahithMangu/CardMirror-Tournament-SpeechDoc-Plugin"
 UPDATE_CHECK_INTERVAL = 24 * 3600
 BRIDGE_SCHEMA = 1

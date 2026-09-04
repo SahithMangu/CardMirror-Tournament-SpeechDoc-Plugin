@@ -1,7 +1,7 @@
 {
   "id": "tabroom-rounds",
   "name": "Tabroom Rounds",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "Creates speech documents named from your live Tabroom pairings, via openCaselist.",
   "author": "Sahith Mangu",
   "apiVersion": 1
